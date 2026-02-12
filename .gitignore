@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Zip files
+stripe.zip
+
+# Optional but recommended
+dist/
+build/
+coverage/
+.vscode/
