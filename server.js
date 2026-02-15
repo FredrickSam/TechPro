@@ -25,6 +25,9 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
+
+const axios = require("axios");
+const moment = require("moment");
 const PORT = process.env.PORT || 3000;
 
 // Multer storage configuration
@@ -67,6 +70,43 @@ const upload = multer({
   storage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
+});
+
+
+// MPESA ACCESS ROUTE
+
+
+// --- M-PESA ACCESS TOKEN HELPER ---
+
+async function getMpesaAccessToken() {
+  const auth = Buffer.from(
+    `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+  ).toString("base64");
+
+  const url =
+    process.env.MPESA_ENV === "live"
+      ? "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+      : "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+
+  return response.data.access_token;
+}
+
+// --- TEST ROUTE FOR ACCESS TOKEN ---
+
+app.get("/api/mpesa/token", async (req, res) => {
+  try {
+    const token = await getMpesaAccessToken();
+    res.json({ access_token: token });
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    res.status(500).json(error.response?.data || error.message);
+  }
 });
 
 
@@ -1007,6 +1047,8 @@ function isEnrolled() {
   };
 }
  
+
+
 // ACCESS COURSE ROUTE
 app.get(
   '/course/:courseId',
