@@ -111,7 +111,15 @@ app.get("/api/mpesa/token", async (req, res) => {
 
 
 /* 🔹 PostgreSQL connection */
+
+
 const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // used in production
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false,
+
+  // fallback for local development
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
