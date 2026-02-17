@@ -1961,11 +1961,12 @@ app.get(
 
 
 /* 🔹 Routes */
-app.get('/', (req, res) => res.send('Server is running successfully 🚀'));
+app.get('/', (req, res) => res.redirect('/login'));
 
 app.get('/login', (req, res) =>
   res.sendFile(path.join(__dirname, 'pages', 'login.html'))
 );
+
 
 app.get('/register', (req, res) =>
   res.sendFile(path.join(__dirname, 'pages', 'register.html'))
