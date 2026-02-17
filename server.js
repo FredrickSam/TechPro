@@ -26,6 +26,8 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 const axios = require("axios");
 const moment = require("moment");
 const PORT = process.env.PORT || 3000;
@@ -248,7 +250,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: false // true only when using HTTPS
+      secure: process.env.NODE_ENV === 'production'
     }
   })
 );
