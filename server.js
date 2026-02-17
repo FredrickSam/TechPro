@@ -2848,6 +2848,10 @@ app.get('/logout', (req, res) => {
 });
 
 /* 🔹 Start server */
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
+
+console.log("DB MODE:", process.env.DATABASE_URL ? "Render DB" : "Local DB");
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+
