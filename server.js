@@ -2201,11 +2201,19 @@ app.post('/login', async (req, res) => {
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.send('Incorrect password');
 
-  req.login(user, err => {
+  req.login(user, async err => {
     if (err) return res.send('Login error');
+
+    // ✅ NEW — update last login timestamp
+    await pool.query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [user.id]
+    );
+
     res.redirect('/home');
   });
 });
+
 
 /* 🔹 Forgot Password */
 async function sendResetEmail(email, link) {
