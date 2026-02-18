@@ -1414,6 +1414,151 @@ app.post(
   }
 );
 
+// ADMIN USER COUNT
+
+app.get('/admin/users', isAuthenticated, async (req, res) => {
+  try {
+    // Optional: restrict to admin only
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const result = await pool.query(`
+      SELECT id, username, email, role, created_at
+      FROM users
+      ORDER BY created_at DESC
+    `);
+
+    const users = result.rows;
+
+    const rows = users.map(user => `
+      <tr>
+        <td>${user.id}</td>
+        <td>${user.username}</td>
+        <td>${user.email}</td>
+        <td>${user.role}</td>
+        <td>${new Date(user.created_at).toLocaleString()}</td>
+        <td>
+          <form method="POST" action="/admin/users/delete/${user.id}" 
+                onsubmit="return confirm('Delete this user?')">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+    `).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Manage Users</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+      </head>
+      <body class="container py-5">
+
+        <h2 class="mb-4">User Management</h2>
+
+        <!-- ADD USER FORM -->
+        <h5>Add New User</h5>
+        <form method="POST" action="/admin/users/add" class="row g-3 mb-5">
+          <div class="col-md-3">
+            <input name="username" class="form-control" placeholder="Username" required>
+          </div>
+          <div class="col-md-3">
+            <input name="email" type="email" class="form-control" placeholder="Email" required>
+          </div>
+          <div class="col-md-3">
+            <input name="password" type="password" class="form-control" placeholder="Password" required>
+          </div>
+          <div class="col-md-2">
+            <select name="role" class="form-control">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <button class="btn btn-success">Add</button>
+          </div>
+        </form>
+
+        <!-- USERS TABLE -->
+        <table class="table table-bordered table-striped">
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Joined</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <a href="/admin" class="btn btn-secondary mt-3">Back</a>
+
+      </body>
+      </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading users');
+  }
+});
+
+// USER DELETE ROUTE
+
+app.post('/admin/users/delete/:id', isAuthenticated, async (req, res) => {
+  try {
+    // 1️⃣ Make sure user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    // 2️⃣ Prevent admin from deleting themselves
+    if (parseInt(req.params.id) === req.user.id) {
+      return res.send("You cannot delete your own account.");
+    }
+
+    // 3️⃣ Perform delete
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+
+    res.redirect('/admin/users');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error deleting user');
+  }
+});
+
+
+// USER ADD ROUTE
+app.post('/admin/users/add', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const { username, email, password, role } = req.body;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      `INSERT INTO users (username, email, password, role)
+       VALUES ($1, $2, $3, $4)`,
+      [username, email, hashedPassword, role]
+    );
+
+    res.redirect('/admin/users');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error adding user');
+  }
+});
 
 // ==================== GET /admin/expenses ====================
 app.get('/admin/expenses', isAuthenticated, isAdmin, async (req, res) => {
