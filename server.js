@@ -1420,18 +1420,27 @@ app.post(
 
 // ADMIN USER COUNT
 
+// ADMIN USER COUNT + SEARCH
+
 app.get('/admin/users', isAuthenticated, async (req, res) => {
   try {
-    // Optional: restrict to admin only
     if (req.user.role !== 'admin') {
       return res.status(403).send('Access denied');
     }
 
+    const search = req.query.search || "";
+
+    // COUNT QUERY
+    const countResult = await pool.query(`SELECT COUNT(*) FROM users`);
+    const totalUsers = countResult.rows[0].count;
+
+    // USERS QUERY WITH SEARCH
     const result = await pool.query(`
       SELECT id, username, email, role, created_at
       FROM users
+      WHERE username ILIKE $1 OR email ILIKE $1
       ORDER BY created_at DESC
-    `);
+    `, [`%${search}%`]);
 
     const users = result.rows;
 
@@ -1461,6 +1470,29 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
       <body class="container py-5">
 
         <h2 class="mb-4">User Management</h2>
+
+        <!-- SUMMARY CARD -->
+        <div class="card mb-4 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Total Users</h5>
+            <h2 class="text-primary">${totalUsers}</h2>
+          </div>
+        </div>
+
+        <!-- SEARCH -->
+        <form class="mb-4">
+          <div class="input-group">
+            <input 
+              type="text" 
+              name="search" 
+              class="form-control" 
+              placeholder="Search username or email..."
+              value="${search}"
+            >
+            <button class="btn btn-primary">Search</button>
+            <a href="/admin/users" class="btn btn-outline-secondary">Reset</a>
+          </div>
+        </form>
 
         <!-- ADD USER FORM -->
         <h5>Add New User</h5>
@@ -1498,7 +1530,7 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
             </tr>
           </thead>
           <tbody>
-            ${rows}
+            ${rows || `<tr><td colspan="6" class="text-center">No users found</td></tr>`}
           </tbody>
         </table>
 
@@ -1513,6 +1545,7 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
     res.status(500).send('Error loading users');
   }
 });
+
 
 // USER DELETE ROUTE
 
