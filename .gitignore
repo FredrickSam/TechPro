@@ -12,3 +12,4 @@ dist/
 build/
 coverage/
 .vscode/
+mywebsite_db.dump/
