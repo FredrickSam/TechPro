@@ -2158,6 +2158,17 @@ app.get(
   }
 );
 
+// Handling All login types
+async function updateLastLogin(userId) {
+  try {
+    await pool.query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [userId]
+    );
+  } catch (err) {
+    console.error('Failed to update last_login:', err);
+  }
+}
 
 
 /* 🔹 Routes */
@@ -2217,14 +2228,12 @@ app.post('/login', async (req, res) => {
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.send('Incorrect password');
 
-  // ✅ Update last_login BEFORE req.login
-  await pool.query(
-    'UPDATE users SET last_login = NOW() WHERE id = $1',
-    [user.id]
-  );
-
-  req.login(user, err => {
+  req.login(user, async err => {
     if (err) return res.send('Login error');
+
+    // ✅ Update AFTER successful login
+    await updateLastLogin(user.id);
+
     res.redirect('/home');
   });
 });
