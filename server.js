@@ -2189,11 +2189,17 @@ app.get(
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
-app.get(
-  '/auth/google/callback',
+app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => res.redirect('/home')
+  async (req, res) => {
+
+    // ✅ Update last_login for Google login
+    await updateLastLogin(req.user.id);
+
+    res.redirect('/home');
+  }
 );
+
 
 /* 🔹 Register */
 app.post('/register', async (req, res) => {
