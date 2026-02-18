@@ -1451,10 +1451,16 @@ FROM users
         <td>${user.username}</td>
         <td>${user.email}</td>
         <td>${user.role}</td>
-        <td>${new Date(user.created_at).toLocaleString()}</td>
+        <td>${new Date(user.last_login).toLocaleString('en-KE', {
+  timeZone: 'Africa/Nairobi'
+})
+}</td>
 <td>${
   user.last_login
-    ? new Date(user.last_login).toLocaleString()
+    ? new Date(user.last_login).toLocaleString('en-KE', {
+  timeZone: 'Africa/Nairobi'
+})
+
     : 'Never'
 }</td>
 <td>
