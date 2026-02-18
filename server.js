@@ -363,6 +363,10 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
 
   <a href="/admin/expenses" class="btn btn-success  w-100 w-md-auto" >Expenditure Tracker</a>
 
+  <a href="/admin/users" class="btn btn-primary">  Manage Users
+</a>
+
+
 
           </div>
 
