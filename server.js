@@ -1436,8 +1436,9 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
 
     // USERS QUERY WITH SEARCH
     const result = await pool.query(`
-      SELECT id, username, email, role, created_at
-      FROM users
+      SELECT id, username, email, role, created_at, last_login
+FROM users
+
       WHERE username ILIKE $1 OR email ILIKE $1
       ORDER BY created_at DESC
     `, [`%${search}%`]);
@@ -1451,6 +1452,13 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
         <td>${user.email}</td>
         <td>${user.role}</td>
         <td>${new Date(user.created_at).toLocaleString()}</td>
+<td>${
+  user.last_login
+    ? new Date(user.last_login).toLocaleString()
+    : 'Never'
+}</td>
+<td>
+
         <td>
           <form method="POST" action="/admin/users/delete/${user.id}" 
                 onsubmit="return confirm('Delete this user?')">
@@ -1525,8 +1533,10 @@ app.get('/admin/users', isAuthenticated, async (req, res) => {
               <th>Username</th>
               <th>Email</th>
               <th>Role</th>
-              <th>Joined</th>
-              <th>Action</th>
+             <th>Joined</th>
+            <th>Last Login</th>
+            <th>Action</th>
+
             </tr>
           </thead>
           <tbody>
