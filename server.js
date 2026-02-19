@@ -266,13 +266,25 @@ function isAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
-// ADMIN MIDDLEWARE
+/* =========================
+   ADMIN HELPERS & MIDDLEWARE
+   ========================= */
+
+// 🔐 Admin access control (SECURITY)
 function isAdmin(req, res, next) {
-  if (req.isAuthenticated() && req.user.role === 'admin') {
+  if (req.isAuthenticated() && req.user.role === "admin") {
     return next();
   }
-  res.status(403).send('Access denied');
+  return res.status(404).send("Page not found");
 }
+
+// 👁️ Admin UI helper (VISIBILITY)
+function adminLink(req) {
+  return req.user && req.user.role === "admin"
+    ? `<li><a class="dropdown-item" href="/admin">Admin Dashboard</a></li>`
+    : ``;
+}
+
 // ADMIN DASHBOARD
 app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
   try {
@@ -3020,7 +3032,7 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="/courses">View Courses</a></li>
             <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
-            <li><a class="dropdown-item" href="/admin">Admin Dashboard</a></li>
+             ${adminLink(req)}
             
           </ul>
         </li>
