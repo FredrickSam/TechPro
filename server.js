@@ -2347,7 +2347,7 @@ app.post('/reset-password/:token', async (req, res) => {
 
 /* 🔹 Protected Pages */
 [
-  'home',
+  //'home',
   //'hobbies',
   //'certifications',
   'contact',
@@ -2359,6 +2359,64 @@ app.post('/reset-password/:token', async (req, res) => {
   app.get(`/${page}`, isAuthenticated, (req, res) =>
     res.sendFile(path.join(__dirname, 'pages', `${page}.html`))
   );
+});
+
+// DYNAMIC HOME PAGE
+
+app.get("/home", isAuthenticated, (req, res) => {
+  const isAdmin = req.user.role === "admin";
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Personal Website</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-bold" href="/home"></a>
+
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+            ${adminLink(req)}
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-5">
+  <h1>Welcome ${req.user.name}</h1>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+`);
 });
 
 // DYNAMIC HOBBIES PAGE
