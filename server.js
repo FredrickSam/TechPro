@@ -3562,6 +3562,7 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
 
 
 /* 🔹 Logout */
+
 app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
