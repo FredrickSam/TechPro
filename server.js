@@ -2361,59 +2361,110 @@ app.post('/reset-password/:token', async (req, res) => {
   );
 });
 
-// DYNAMIC HOME PAGE
+//DYNAMIC HOME PAGE
 
-app.get("/home", isAuthenticated, (req, res) => {
-  const isAdmin = req.user.role === "admin";
+app.get('/home', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM home_content ORDER BY created_at ASC'
+  );
+
+  const profile = result.rows.find(r => r.section === 'profile');
+  const bio = result.rows.find(r => r.section === 'bio');
+  const marquee = result.rows.find(r => r.section === 'marquee');
+  const slides = result.rows.filter(r => r.section === 'slideshow');
+
+  const slideshowHtml = slides.map((img, i) => `
+    <img src="${img.file_path}" style="animation-delay:${i * 3}s">
+  `).join('');
 
   res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Personal Website</title>
+  <title>Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
+
+  <style>
+    .slideshow {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      max-height: 500px;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 2px solid #333;
+    }
+
+    .slideshow img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      animation: fade 6s infinite;
+    }
+
+    @keyframes fade {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .scrolling-text-container {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      background: #f1f1f1;
+      border-top: 1px solid #ccc;
+    }
+
+    .scrolling-text {
+      display: inline-block;
+      padding-left: 100%;
+      animation: scroll-left 15s linear infinite;
+      font-weight: bold;
+    }
+
+    @keyframes scroll-left {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
+    }
+  </style>
 </head>
 
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
-  <div class="container-fluid px-4">
-    <a class="navbar-brand fw-bold" href="/home"></a>
-
-    <div class="collapse navbar-collapse">
-      <ul class="navbar-nav ms-auto">
-
-        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
-
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-            Courses
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
-            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
-            ${adminLink(req)}
-          </ul>
-        </li>
-
-        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
-
-      </ul>
+  <div class="scrolling-text-container">
+    <div class="scrolling-text">
+      ${marquee?.content || ''}
     </div>
   </div>
-</nav>
 
-<div class="container mt-5">
-  <h1>Welcome ${req.user.name}</h1>
-</div>
+  <div class="container mt-5">
+    <div class="row align-items-center">
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+      <div class="col-lg-4 col-md-5 col-sm-12 mb-4">
+        <div class="slideshow">
+          ${slideshowHtml || '<img src="/images/default.jpg">'}
+        </div>
+      </div>
+
+      <div class="col-lg-8 col-md-7 col-sm-12">
+        <h1>${profile?.title || ''}</h1>
+        <p><em><strong>${profile?.content || ''}</strong></em></p>
+        <p>${bio?.content || ''}</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 `);
