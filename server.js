@@ -2580,6 +2580,42 @@ app.get('/hobbies', isAuthenticated, async (req, res) => {
     <link rel="stylesheet" href="/css/hobbies.css">
   </head>
   <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
         ${pageTitle.toUpperCase()}
@@ -2670,6 +2706,42 @@ app.get('/books', isAuthenticated, async (req, res) => {
     <link rel="stylesheet" href="/css/books.css">
   </head>
   <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
         ${pageTitle.toUpperCase()}
@@ -2786,6 +2858,42 @@ app.get('/skills', isAuthenticated, async (req, res) => {
     </style>
   </head>
   <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
         ${pageTitle.toUpperCase()}
@@ -2875,6 +2983,42 @@ app.get('/work', isAuthenticated, async (req, res) => {
     <link rel="stylesheet" href="/css/work.css">
   </head>
   <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
         ${pageTitle.toUpperCase()}
@@ -2967,6 +3111,42 @@ app.get('/certifications', isAuthenticated, async (req, res) => {
       <link rel="stylesheet" href="/css/styles.css">
     </head>
     <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
       <div class="container py-5">
         <h2 class="mb-5 text-center fw-bold">
           ${pageTitle.toUpperCase()}
@@ -3060,6 +3240,42 @@ for (const category in grouped) {
         >
       </head>
       <body>
+      <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
     
         <hr>
         <h3 class="page-title text-center mb-4">Courses</h3>
