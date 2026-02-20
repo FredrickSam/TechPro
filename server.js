@@ -74,6 +74,28 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
 });
 
+// SLIDESHOW UPLOAD middleware
+const slideshowStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'public/uploads/slideshow'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+    cb(null, name);
+  }
+});
+
+const slideshowFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) cb(null, true);
+  else cb(new Error('Only images allowed for slideshow'), false);
+};
+
+const uploadSlideshow = multer({
+  storage: slideshowStorage,
+  fileFilter: slideshowFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 // MPESA ACCESS ROUTE
 
@@ -302,6 +324,10 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
     const bio = homeContent.rows.find(r => r.section === 'bio');
     const marquee = homeContent.rows.find(r => r.section === 'marquee');
 
+    // GET SLIDESHOW
+const slides = await pool.query(
+  "SELECT * FROM home_content WHERE section='slideshow' ORDER BY created_at"
+);
     res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -399,6 +425,29 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
   </form>
 
   <div class="text-center mt-4">
+  <hr class="my-5">
+<h4 class="text-center mb-4">📸 Manage Home Slideshow</h4>
+
+<!-- Upload new image -->
+<form action="/admin/home/slideshow/upload" method="POST" enctype="multipart/form-data" class="mb-4 text-center">
+  <input type="file" name="image" required>
+  <button class="btn btn-success">Upload Image</button>
+</form>
+
+<!-- Existing images -->
+<div class="d-flex flex-wrap justify-content-center gap-3">
+  ${slides.rows.map(slide => `
+    <div class="card text-center" style="width:150px;">
+      <img src="${slide.file_path}" class="card-img-top" style="height:120px; object-fit:cover;">
+      <div class="card-body p-2">
+        <form action="/admin/home/slideshow/delete" method="POST">
+          <input type="hidden" name="id" value="${slide.id}">
+          <button class="btn btn-sm btn-danger w-100">Delete</button>
+        </form>
+      </div>
+    </div>
+  `).join('')}
+</div>
     <a href="/home">← Back to site</a>
   </div>
 
@@ -412,7 +461,7 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
   }
 });
 
-// hHOME POST ROUTE
+// HOME POST ROUTE
 
 app.post('/admin/home/text', isAuthenticated, isAdmin, async (req, res) => {
   const { name, role, bio, marquee } = req.body;
@@ -432,6 +481,39 @@ app.post('/admin/home/text', isAuthenticated, isAdmin, async (req, res) => {
     [marquee]
   );
 
+  res.redirect('/admin');
+});
+
+// POST ROUTE FOR SLIDESHOWUPLOADS
+app.post('/admin/home/slideshow/upload', isAuthenticated, isAdmin, uploadSlideshow.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).send('No file uploaded');
+
+  const filePath = '/uploads/slideshow/' + req.file.filename; // public path
+
+  await pool.query(
+    "INSERT INTO home_content (section, file_path) VALUES ($1, $2)",
+    ['slideshow', filePath]
+  );
+
+  res.redirect('/admin');
+});
+
+// DELETE ROUTE [ HOME PAGE]
+app.post('/admin/home/slideshow/delete', isAuthenticated, isAdmin, async (req, res) => {
+  const { id } = req.body;
+
+  // Optional: delete file from server
+  const slide = await pool.query("SELECT file_path FROM home_content WHERE id=$1", [id]);
+  const fs = require('fs');
+  const filePath = slide.rows[0]?.file_path;
+  if (filePath) {
+    const fullPath = path.join(__dirname, 'public', filePath);
+    fs.unlink(fullPath, err => {
+      if (err) console.log('Failed to delete file:', err);
+    });
+  }
+
+  await pool.query("DELETE FROM home_content WHERE id=$1", [id]);
   res.redirect('/admin');
 });
 
