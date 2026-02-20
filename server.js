@@ -293,104 +293,119 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
     const enrollmentsCount = await pool.query('SELECT COUNT(*) FROM enrollments');
     const paymentsCount = await pool.query('SELECT COUNT(*) FROM payments');
 
+    // 🔹 Fetch Home Content for editing
+    const homeContent = await pool.query(
+      "SELECT * FROM home_content WHERE section IN ('profile', 'bio', 'marquee')"
+    );
+
+    const profile = homeContent.rows.find(r => r.section === 'profile');
+    const bio = homeContent.rows.find(r => r.section === 'bio');
+    const marquee = homeContent.rows.find(r => r.section === 'marquee');
+
     res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Admin Dashboard</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-        >
-      </head>
-      <body class="bg-light">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
 
-        <div class="container mt-5">
-          <h2 class="mb-4 text-center">🛠 Admin Dashboard</h2>
+<div class="container mt-5">
+  <h2 class="mb-4 text-center">🛠 Admin Dashboard</h2>
 
-          <div class="row text-center">
-
-            <div class="col-md-3 mb-3">
-              <div class="card shadow">
-                <div class="card-body">
-                  <h5>Total Users</h5>
-                  <h3>${usersCount.rows[0].count}</h3>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <div class="card shadow">
-                <div class="card-body">
-                  <h5>Total Courses</h5>
-                  <h3>${coursesCount.rows[0].count}</h3>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <div class="card shadow">
-                <div class="card-body">
-                  <h5>Enrollments</h5>
-                  <h3>${enrollmentsCount.rows[0].count}</h3>
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <div class="card shadow">
-                <div class="card-body">
-                  <h5>Payments</h5>
-                  <h3>${paymentsCount.rows[0].count}</h3>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <hr class="my-4">
-
-          <div class="d-flex flex-wrap justify-content-center gap-3">
-
-            <a href="/admin/courses/new" class="btn btn-success w-100 w-md-auto">
-
-              ➕ Upload Course
-            </a>
-            <a href="/admin/courses" class="btn btn-primary  w-100 w-md-auto">
-              📚 Manage Courses
-            </a>
-            <a href="/admin/enrollments" class="btn btn-warning  w-100 w-md-auto">
-              👥 View Enrollments
-            </a>
-
-             <a href="/admin/sales" class="btn btn-primary  w-100 w-md-auto">
-              📊 View Sales
-            </a>
-
-            <a href="/admin/profile-items" class="btn btn-info  w-100 w-md-auto">
-  🧩 Manage Profile Content
-</a>
-
-  <a href="/admin/expenses" class="btn btn-success  w-100 w-md-auto" >Expenditure Tracker</a>
-
-  <a href="/admin/users" class="btn btn-primary">  Manage Users
-</a>
-
-
-
-          </div>
-
-          <div class="text-center mt-4">
-            <a href="/home">← Back to site</a>
-          </div>
-
+  <!-- STATS -->
+  <div class="row text-center">
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Total Users</h5>
+          <h3>${usersCount.rows[0].count}</h3>
         </div>
+      </div>
+    </div>
 
-      </body>
-      </html>
-    `);
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Total Courses</h5>
+          <h3>${coursesCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Enrollments</h5>
+          <h3>${enrollmentsCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Payments</h5>
+          <h3>${paymentsCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="my-4">
+
+  <!-- ACTION BUTTONS -->
+  <div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="/admin/courses/new" class="btn btn-success">➕ Upload Course</a>
+    <a href="/admin/courses" class="btn btn-primary">📚 Manage Courses</a>
+    <a href="/admin/enrollments" class="btn btn-warning">👥 View Enrollments</a>
+    <a href="/admin/sales" class="btn btn-primary">📊 View Sales</a>
+    <a href="/admin/profile-items" class="btn btn-info">🧩 Manage Profile Content</a>
+    <a href="/admin/expenses" class="btn btn-success">Expenditure Tracker</a>
+    <a href="/admin/users" class="btn btn-primary">Manage Users</a>
+  </div>
+
+  <!-- HOME EDITOR -->
+  <hr class="my-5">
+  <h4 class="text-center mb-4">🏠 Edit Home Page Content</h4>
+
+  <form action="/admin/home/text" method="POST" class="mx-auto" style="max-width:700px;">
+    <div class="mb-3">
+      <label class="form-label">Name</label>
+      <input type="text" name="name" class="form-control" value="${profile?.title || ''}" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Title / Role</label>
+      <input type="text" name="role" class="form-control" value="${profile?.content || ''}" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Bio</label>
+      <textarea name="bio" rows="4" class="form-control" required>${bio?.content || ''}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Scrolling Message</label>
+      <input type="text" name="marquee" class="form-control" value="${marquee?.content || ''}" required>
+    </div>
+
+    <div class="text-center">
+      <button class="btn btn-primary">💾 Update Home Text</button>
+    </div>
+  </form>
+
+  <div class="text-center mt-4">
+    <a href="/home">← Back to site</a>
+  </div>
+
+</div>
+</body>
+</html>
+`);
   } catch (err) {
     console.error(err);
     res.status(500).send('Admin dashboard error');
