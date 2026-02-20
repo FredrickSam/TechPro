@@ -412,6 +412,29 @@ app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
   }
 });
 
+// hHOME POST ROUTE
+
+app.post('/admin/home/text', isAuthenticated, isAdmin, async (req, res) => {
+  const { name, role, bio, marquee } = req.body;
+
+  await pool.query(
+    "UPDATE home_content SET title=$1, content=$2 WHERE section='profile'",
+    [name, role]
+  );
+
+  await pool.query(
+    "UPDATE home_content SET content=$1 WHERE section='bio'",
+    [bio]
+  );
+
+  await pool.query(
+    "UPDATE home_content SET content=$1 WHERE section='marquee'",
+    [marquee]
+  );
+
+  res.redirect('/admin');
+});
+
 // MANAGE COURSES PAGE
 
 app.get('/admin/courses', isAuthenticated, isAdmin, async (req, res) => {
