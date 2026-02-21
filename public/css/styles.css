@@ -4,8 +4,7 @@ body {
   background: linear-gradient(to bottom right, #e0f7fa, #fffde7);
   margin: 0;
   padding: 0;
-  opacity: 0;
-  animation: fadeInPage 1s ease-in-out forwards;
+ 
 }
 
 /* Page Fade-in Animation */
