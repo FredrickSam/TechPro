@@ -2595,6 +2595,8 @@ app.get('/home', isAuthenticated, async (req, res) => {
   </div>
 </nav>
 
+<div class="page-wrapper">
+
   <div class="scrolling-text-container">
     <div class="scrolling-text">
       ${marquee?.content || ''}
@@ -2618,6 +2620,7 @@ app.get('/home', isAuthenticated, async (req, res) => {
 
     </div>
   </div>
+</div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
@@ -3400,7 +3403,7 @@ for (const category in grouped) {
     </div>
   </div>
 </nav>
-
+<div class="page-wrapper">
     
         <hr>
         <h3 class="page-title text-center mb-4">Courses</h3>
@@ -3414,6 +3417,7 @@ for (const category in grouped) {
         
 
         <hr>
+</div>        
         
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
       </body>
@@ -3531,18 +3535,22 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
 
 
 <!-- ✅ Page Content -->
-<div class="container my-5">
+<div class="page-wrapper">
 
-  <h2 class="text-center mb-4">🎓 My Courses</h2>
+  <div class="container my-5">
 
-  <div class="row g-4">
-    ${courseCards}
-  </div>
+    <h2 class="text-center mb-4">🎓 My Courses</h2>
 
-  <div class="text-center mt-5">
-    <a href="/courses" class="btn btn-outline-primary">
-      ➕ Enroll in more courses
-    </a>
+    <div class="row g-4">
+      ${courseCards}
+    </div>
+
+    <div class="text-center mt-5">
+      <a href="/courses" class="btn btn-outline-primary">
+        ➕ Enroll in more courses
+      </a>
+    </div>
+
   </div>
 
 </div>

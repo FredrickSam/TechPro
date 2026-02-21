@@ -7,6 +7,11 @@ body {
  
 }
 
+.page-wrapper {
+  opacity: 0;
+  animation: fadeInPage 1s ease-in-out forwards;
+}
+
 /* Page Fade-in Animation */
 @keyframes fadeInPage {
   to {
