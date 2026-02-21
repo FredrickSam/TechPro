@@ -350,7 +350,7 @@ video {
 
 .navbar {
   height: 70px;
-  background-color: #ffffff !important;
+  background-color:#f0fff4 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     z-index: 1055;
     position: relative;
