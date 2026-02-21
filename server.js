@@ -2738,6 +2738,7 @@ app.get('/hobbies', isAuthenticated, async (req, res) => {
     </div>
   </div>
 </nav>
+<div class="page-wrapper">
 
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
@@ -2748,6 +2749,7 @@ app.get('/hobbies', isAuthenticated, async (req, res) => {
         ${html || '<p class="text-muted text-center">No hobbies yet.</p>'}
       </div>
     </div>
+</div>    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
   </html>
@@ -2865,6 +2867,7 @@ app.get('/books', isAuthenticated, async (req, res) => {
     </div>
   </div>
 </nav>
+<div class="page-wrapper">
 
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
@@ -2875,6 +2878,7 @@ app.get('/books', isAuthenticated, async (req, res) => {
         ${html || '<p class="text-muted text-center">No books yet.</p>'}
       </div>
     </div>
+ </div>    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
   </html>
@@ -3018,7 +3022,7 @@ app.get('/skills', isAuthenticated, async (req, res) => {
     </div>
   </div>
 </nav>
-
+<div class="page-wrapper">
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
         ${pageTitle.toUpperCase()}
@@ -3028,6 +3032,7 @@ app.get('/skills', isAuthenticated, async (req, res) => {
         ${html || '<p class="text-muted text-center">No skills yet.</p>'}
       </div>
     </div>
+</div>    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
   </html>
@@ -3144,6 +3149,7 @@ app.get('/work', isAuthenticated, async (req, res) => {
     </div>
   </div>
 </nav>
+<div class="page-wrapper">
 
     <div class="container py-5">
       <h2 class="mb-5 text-center fw-bold">
@@ -3154,6 +3160,7 @@ app.get('/work', isAuthenticated, async (req, res) => {
         ${html || '<p class="text-muted text-center">No work experience yet.</p>'}
       </div>
     </div>
+</div>    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   </body>
   </html>
@@ -3273,6 +3280,7 @@ app.get('/certifications', isAuthenticated, async (req, res) => {
     </div>
   </div>
 </nav>
+<div class="page-wrapper">
 
       <div class="container py-5">
         <h2 class="mb-5 text-center fw-bold">
@@ -3283,6 +3291,7 @@ app.get('/certifications', isAuthenticated, async (req, res) => {
           ${html || '<p class="text-muted text-center">No certifications yet.</p>'}
         </div>
       </div>
+</div>      
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     </body>
     </html>
