@@ -353,6 +353,7 @@ video {
   background-color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     z-index: 1055;
+    position: relative;
 }
 
 .navbar-brand {
@@ -394,6 +395,8 @@ video {
   border-radius: 10px;
   border: none;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  background-color: #ffffff;
+  z-index: 1060;
 }
 
 .dropdown-item {
