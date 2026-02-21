@@ -433,6 +433,35 @@ video {
 @media (max-width: 991px) {
   .navbar-collapse {
     max-height: calc(100vh - 70px);
-    overflow-y: visible;
+    overflow-y: auto;
   }
+}
+
+@media (max-width: 991px) {
+
+  .navbar-collapse {
+    position: fixed;
+    top: 70px;              /* navbar height */
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 70px);
+
+    background: white;
+    z-index: 9998;
+
+    padding: 20px;
+
+    overflow-y: auto;
+
+    transform: translateY(-120%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .navbar-collapse.show {
+    transform: translateY(0);
+  }
+
+}
+body.menu-open {
+  overflow: hidden;
 }
