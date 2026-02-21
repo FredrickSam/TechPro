@@ -326,6 +326,7 @@ video {
   z-index: 1000;
 }
 */ 
+/*
 .dropdown-content a {
   color: white;
   padding: 12px 16px;
@@ -336,11 +337,14 @@ video {
 .dropdown-content a:hover {
   background-color: #444;
 }
+  */
 
 /* SHOW DROPDOWN ON HOVER */
+/*
 .dropdown:hover .dropdown-content {
   display: block;
 }
+  */
 
 /* ===== PROFESSIONAL NAVBAR ===== */
 
