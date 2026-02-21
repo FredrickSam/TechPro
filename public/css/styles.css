@@ -433,6 +433,6 @@ video {
 @media (max-width: 991px) {
   .navbar-collapse {
     max-height: calc(100vh - 70px);
-    overflow-y: auto;
+    overflow-y: visible;
   }
 }
