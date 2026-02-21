@@ -4,6 +4,7 @@ body {
   background: linear-gradient(to bottom right, #e0f7fa, #fffde7);
   margin: 0;
   padding: 0;
+  padding-top: 80px; 
  
 }
 
@@ -125,7 +126,7 @@ h1 {
   opacity: 0;
 
   position: relative;
-  z-index: 1;
+ 
 }
 
 @keyframes slideUp {
@@ -350,10 +351,12 @@ video {
 
 .navbar {
   height: 70px;
-  background-color:#f0fff4 !important;
+  background-color: #f0fff4 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-    z-index: 1055;
-    position: relative;
+  position: fixed;   /* CHANGE THIS */
+  top: 0;
+  width: 100%;
+  z-index: 2000;     /* Increase */
 }
 
 .navbar-brand {
@@ -396,7 +399,8 @@ video {
   border: none;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
   background-color: #ffffff;
-  z-index: 1060;
+  position: absolute;
+  z-index: 3000;   /* Higher than everything */
 }
 
 .dropdown-item {
