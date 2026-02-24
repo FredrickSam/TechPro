@@ -2163,6 +2163,29 @@ app.post('/admin/todos', isAuthenticated, async (req, res) => {
 
   res.redirect('/admin/todos');
 });
+
+// MARK COMPLETE ROUTE
+
+app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
+  try {
+    // Ensure only admin can mark tasks
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    await pool.query(
+      'UPDATE todos SET completed = TRUE WHERE id = $1',
+      [taskId]
+    );
+
+    res.redirect('/admin/todos');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
 app.post('/pay/card', isAuthenticated, async (req, res) => {
   const { course_id, course_name, amount } = req.body;
