@@ -3639,7 +3639,7 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
 
       return `
         <div class="col-md-4 col-sm-6 mb-4">
-          <div class="card h-100 shadow-sm border-0 ${isOverdue ? 'border-danger' : ''}">
+          <div class="card h-100 shadow-sm ${isOverdue ? 'border border-danger border-3' : 'border-0'}">
 
             <div class="card-header bg-white text-center fw-semibold">
               ${task.title}
