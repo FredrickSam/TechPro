@@ -465,3 +465,7 @@ video {
 body.menu-open {
   overflow: hidden;
 }
+
+.border-danger {
+  border: 2px solid #dc3545 !important;
+}
