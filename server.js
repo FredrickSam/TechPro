@@ -3743,6 +3743,13 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
     `
     : `
     <span class="badge bg-success">Completed</span>
+
+     <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+      <button class="btn btn-sm btn-info mt-1">
+        Edit
+      </button>
+    </form>
+    
     <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
       <button class="btn btn-sm btn-danger mt-2" onclick="return confirm('Are you sure you want to delete this task?')">
         Delete
