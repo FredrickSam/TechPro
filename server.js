@@ -392,6 +392,7 @@ const slides = await pool.query(
     <a href="/admin/profile-items" class="btn btn-info">🧩 Manage Profile Content</a>
     <a href="/admin/expenses" class="btn btn-success">Expenditure Tracker</a>
     <a href="/admin/users" class="btn btn-primary">Manage Users</a>
+    <a href="/admin/todos" class="btn btn-dark">📝 Task Manager</a>
   </div>
 
   <!-- HOME EDITOR -->
@@ -460,6 +461,8 @@ const slides = await pool.query(
     res.status(500).send('Admin dashboard error');
   }
 });
+
+
 
 // HOME POST ROUTE
 
@@ -2147,6 +2150,38 @@ app.get('/admin/expenses/export/pdf', isAuthenticated, isAdmin, async (req, res)
   doc.end();
 });
 
+// VIEW TO DO ROUTE
+app.get('/admin/todos', isAuthenticated, async (req, res) => {
+  try {
+    // Ensure only admin can access
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM todos ORDER BY created_at DESC'
+    );
+
+    res.render('admin-todos', { todos: result.rows });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// POST TO DO ROUTE
+app.post('/admin/todos', isAuthenticated, async (req, res) => {
+  const { title, description, priority, due_date } = req.body;
+
+  await pool.query(
+    `INSERT INTO todos (title, description, priority, due_date)
+     VALUES ($1, $2, $3, $4)`,
+    [title, description, priority, due_date]
+  );
+
+  res.redirect('/admin/todos');
+});
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
 app.post('/pay/card', isAuthenticated, async (req, res) => {
   const { course_id, course_name, amount } = req.body;
@@ -2755,6 +2790,7 @@ app.get('/hobbies', isAuthenticated, async (req, res) => {
   </html>
   `);
 });
+
 
 
 // DYNAMIC BOOKS PAGE
@@ -3577,6 +3613,185 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
   }
 });
 
+// TO DO DYNAMIC PAGE
+app.get('/admin/todos', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM todos ORDER BY created_at DESC'
+    );
+
+    const pageTitle = 'Admin Task Manager';
+
+    const html = result.rows.map(task => {
+
+      const isOverdue =
+        task.due_date &&
+        !task.completed &&
+        new Date(task.due_date) < new Date();
+
+      return `
+        <div class="col-md-4 col-sm-6 mb-4">
+          <div class="card h-100 shadow-sm border-0 ${isOverdue ? 'border-danger' : ''}">
+
+            <div class="card-header bg-white text-center fw-semibold">
+              ${task.title}
+            </div>
+
+            <div class="card-body text-center">
+
+              <p class="text-muted">
+                ${task.description || ''}
+              </p>
+
+              <p>
+                <strong>Priority:</strong>
+                <span class="badge bg-${
+                  task.priority === 'high'
+                    ? 'danger'
+                    : task.priority === 'medium'
+                    ? 'warning'
+                    : 'secondary'
+                }">
+                  ${task.priority}
+                </span>
+              </p>
+
+              <p class="${isOverdue ? 'text-danger fw-bold' : ''}">
+                <strong>Due:</strong>
+                ${
+                  task.due_date
+                    ? new Date(task.due_date).toLocaleString()
+                    : 'No deadline'
+                }
+              </p>
+
+              ${
+                !task.completed
+                  ? `
+                  <form action="/admin/todos/${task.id}/complete" method="POST">
+                    <button class="btn btn-sm btn-success">
+                      Mark Done
+                    </button>
+                  </form>
+                  `
+                  : `
+                  <span class="badge bg-success">Completed</span>
+                  `
+              }
+
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>${pageTitle}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+
+      <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+      />
+
+      <link rel="stylesheet" href="/css/styles.css">
+    </head>
+    <body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+      <div class="container-fluid px-4">
+        <a class="navbar-brand" href="/home"></a>
+
+        <div class="collapse navbar-collapse">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
+            <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container py-5">
+
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <!-- ADD TASK FORM -->
+      <div class="card mb-5 shadow-sm">
+        <div class="card-body">
+          <form action="/admin/todos" method="POST">
+            <div class="row g-3">
+
+              <div class="col-md-4">
+                <input type="text" name="title" class="form-control"
+                  placeholder="Task title" required>
+              </div>
+
+              <div class="col-md-3">
+                <select name="priority" class="form-select">
+                  <option value="high">High</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <input type="datetime-local"
+                  name="due_date"
+                  class="form-control">
+              </div>
+
+              <div class="col-md-2">
+                <button class="btn btn-primary w-100">
+                  Add Task
+                </button>
+              </div>
+
+              <div class="col-12">
+                <textarea name="description"
+                  class="form-control"
+                  placeholder="Description (optional)">
+                </textarea>
+              </div>
+
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="row">
+        ${
+          html || `
+            <p class="text-muted text-center">
+              No tasks yet.
+            </p>
+          `
+        }
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    </body>
+    </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 
 /* 🔹 Logout */
 
