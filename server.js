@@ -2164,7 +2164,7 @@ app.post('/admin/todos', isAuthenticated, async (req, res) => {
   res.redirect('/admin/todos');
 });
 
-// MARK COMPLETE ROUTE
+// MARK COMPLETE  TO DO ROUTE
 
 app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
   try {
@@ -2177,6 +2177,28 @@ app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
 
     await pool.query(
       'UPDATE todos SET completed = TRUE WHERE id = $1',
+      [taskId]
+    );
+
+    res.redirect('/admin/todos');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// TO DO DELETE ROUTE
+app.post('/admin/todos/:id/delete', isAuthenticated, async (req, res) => {
+  try {
+    // Ensure only admin can delete
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    await pool.query(
+      'DELETE FROM todos WHERE id = $1',
       [taskId]
     );
 
@@ -3674,19 +3696,30 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
                 }
               </p>
 
-              ${
-                !task.completed
-                  ? `
-                  <form action="/admin/todos/${task.id}/complete" method="POST">
-                    <button class="btn btn-sm btn-success">
-                      Mark Done
-                    </button>
-                  </form>
-                  `
-                  : `
-                  <span class="badge bg-success">Completed</span>
-                  `
-              }
+       ${
+  !task.completed
+    ? `
+    <form class="d-inline" action="/admin/todos/${task.id}/complete" method="POST">
+      <button class="btn btn-sm btn-success">
+        Mark Done
+      </button>
+    </form>
+
+    <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+      <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this task?')">
+        Delete
+      </button>
+    </form>
+    `
+    : `
+    <span class="badge bg-success">Completed</span>
+    <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+      <button class="btn btn-sm btn-danger mt-2" onclick="return confirm('Are you sure you want to delete this task?')">
+        Delete
+      </button>
+    </form>
+    `
+}
 
             </div>
           </div>
