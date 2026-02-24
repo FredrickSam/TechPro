@@ -3663,7 +3663,7 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
   }
 });
 
-// TO DO DYNAMIC PAGE
+// TOdO DYNAMIC PAGE
 app.get('/admin/todos', isAuthenticated, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -3749,7 +3749,7 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
         Edit
       </button>
     </form>
-    
+
     <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
       <button class="btn btn-sm btn-danger mt-2" onclick="return confirm('Are you sure you want to delete this task?')">
         Delete
@@ -3781,19 +3781,42 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
     </head>
     <body>
 
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-      <div class="container-fluid px-4">
-        <a class="navbar-brand" href="/home"></a>
+ <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-        <div class="collapse navbar-collapse">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
-            <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
           </ul>
-        </div>
-      </div>
-    </nav>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
 
     <div class="container py-5">
 
