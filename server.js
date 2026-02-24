@@ -2150,25 +2150,6 @@ app.get('/admin/expenses/export/pdf', isAuthenticated, isAdmin, async (req, res)
   doc.end();
 });
 
-// VIEW TO DO ROUTE
-app.get('/admin/todos', isAuthenticated, async (req, res) => {
-  try {
-    // Ensure only admin can access
-    if (req.user.role !== 'admin') {
-      return res.status(403).send('Access denied');
-    }
-
-    const result = await pool.query(
-      'SELECT * FROM todos ORDER BY created_at DESC'
-    );
-
-    res.render('admin-todos', { todos: result.rows });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
-  }
-});
 
 // POST TO DO ROUTE
 app.post('/admin/todos', isAuthenticated, async (req, res) => {
