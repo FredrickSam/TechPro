@@ -2208,6 +2208,30 @@ app.post('/admin/todos/:id/delete', isAuthenticated, async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
+// ROUTE TO SAVE EDITED TASK
+app.post('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+    const { title, description, priority, due_date } = req.body;
+
+    await pool.query(
+      `UPDATE todos
+       SET title = $1, description = $2, priority = $3, due_date = $4
+       WHERE id = $5`,
+      [title, description, priority, due_date || null, taskId]
+    );
+
+    res.redirect('/admin/todos');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
 app.post('/pay/card', isAuthenticated, async (req, res) => {
   const { course_id, course_name, amount } = req.body;
@@ -3705,6 +3729,12 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
       </button>
     </form>
 
+    <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+  <button class="btn btn-sm btn-info">
+    Edit
+  </button>
+</form>
+
     <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
       <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this task?')">
         Delete
@@ -3823,6 +3853,83 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
 
     </body>
     </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// EDIT TODO ROUTE
+app.get('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    const result = await pool.query(
+      'SELECT * FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    const task = result.rows[0];
+
+    if (!task) {
+      return res.status(404).send('Task not found');
+    }
+
+    // Render dynamic edit page
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Edit Task</title>
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <div class="container py-5">
+          <h2 class="mb-4 text-center">Edit Task</h2>
+
+          <form action="/admin/todos/${task.id}/edit" method="POST">
+            <div class="mb-3">
+              <label class="form-label">Title</label>
+              <input type="text" name="title" class="form-control" value="${task.title}" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control">${task.description || ''}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-select">
+                <option value="high" ${task.priority === 'high' ? 'selected' : ''}>High</option>
+                <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Low</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Due Date</label>
+              <input type="datetime-local" name="due_date" class="form-control"
+                value="${task.due_date ? new Date(task.due_date).toISOString().slice(0,16) : ''}">
+            </div>
+
+            <button class="btn btn-primary">Save Changes</button>
+            <a href="/admin/todos" class="btn btn-secondary ms-2">Cancel</a>
+          </form>
+        </div>
+      </body>
+      </html>
     `);
 
   } catch (err) {
