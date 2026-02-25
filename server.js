@@ -2233,6 +2233,60 @@ app.post('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
   }
 });
 
+//  START POST ROUTE
+app.post('/admin/todos/:id/start', isAuthenticated, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    await pool.query(
+      'UPDATE todos SET started_at = NOW() WHERE id = $1',
+      [taskId]
+    );
+
+    res.redirect('/admin/todos');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// STOP POST ROUTE
+app.post('/admin/todos/:id/stop', isAuthenticated, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    const result = await pool.query(
+      'SELECT started_at, total_time_seconds FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    const task = result.rows[0];
+
+    if (!task.started_at) {
+      return res.redirect('/admin/todos');
+    }
+
+    const startedAt = new Date(task.started_at);
+    const now = new Date();
+
+    const secondsSpent = Math.floor((now - startedAt) / 1000);
+
+    await pool.query(
+      `UPDATE todos
+       SET total_time_seconds = total_time_seconds + $1,
+           started_at = NULL
+       WHERE id = $2`,
+      [secondsSpent, taskId]
+    );
+
+    res.redirect('/admin/todos');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
 
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
 app.post('/pay/card', isAuthenticated, async (req, res) => {
@@ -3679,6 +3733,11 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
     const pageTitle = 'Admin Task Manager';
 
     const html = result.rows.map(task => {
+      const totalSeconds = task.total_time_seconds || 0;
+
+const hours = Math.floor(totalSeconds / 3600);
+const minutes = Math.floor((totalSeconds % 3600) / 60);
+const seconds = totalSeconds % 60;
 
       const isOverdue =
         task.due_date &&
@@ -3721,43 +3780,67 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
                     : 'No deadline'
                 }
               </p>
+              <p>
+  <strong>Time Spent:</strong>
+  ${hours}h ${minutes}m ${seconds}s
+</p>
 
 </a>
        ${
   !task.completed
     ? `
-    <form class="d-inline" action="/admin/todos/${task.id}/complete" method="POST">
-      <button class="btn btn-sm btn-success">
-        Mark Done
-      </button>
-    </form>
+      ${
+        task.started_at
+          ? `
+            <form class="d-inline" action="/admin/todos/${task.id}/stop" method="POST">
+              <button class="btn btn-sm btn-warning">
+                Stop Timer
+              </button>
+            </form>
+          `
+          : `
+            <form class="d-inline" action="/admin/todos/${task.id}/start" method="POST">
+              <button class="btn btn-sm btn-primary">
+                Start Timer
+              </button>
+            </form>
+          `
+      }
 
-    <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
-  <button class="btn btn-sm btn-info">
-    Edit
-  </button>
-</form>
+      <form class="d-inline" action="/admin/todos/${task.id}/complete" method="POST">
+        <button class="btn btn-sm btn-success">
+          Mark Done
+        </button>
+      </form>
 
-    <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
-      <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this task?')">
-        Delete
-      </button>
-    </form>
+      <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+        <button class="btn btn-sm btn-info">
+          Edit
+        </button>
+      </form>
+
+      <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+        <button class="btn btn-sm btn-danger"
+          onclick="return confirm('Are you sure you want to delete this task?')">
+          Delete
+        </button>
+      </form>
     `
     : `
-    <span class="badge bg-success">Completed</span>
+      <span class="badge bg-success">Completed</span>
 
-     <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
-      <button class="btn btn-sm btn-info mt-1">
-        Edit
-      </button>
-    </form>
+      <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+        <button class="btn btn-sm btn-info mt-1">
+          Edit
+        </button>
+      </form>
 
-    <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
-      <button class="btn btn-sm btn-danger mt-2" onclick="return confirm('Are you sure you want to delete this task?')">
-        Delete
-      </button>
-    </form>
+      <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+        <button class="btn btn-sm btn-danger mt-2"
+          onclick="return confirm('Are you sure you want to delete this task?')">
+          Delete
+        </button>
+      </form>
     `
 }
 
