@@ -2166,8 +2166,6 @@ app.post('/admin/todos', isAuthenticated, async (req, res) => {
 
 // MARK COMPLETE  TO DO ROUTE
 
-// MARK COMPLETE  TO DO ROUTE
-
 app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
