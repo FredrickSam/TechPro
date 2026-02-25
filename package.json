@@ -89,6 +89,7 @@
     "is-promise": "^4.0.0",
     "isarray": "^1.0.0",
     "jpeg-exif": "^1.1.4",
+    "json2csv": "^6.0.0-alpha.2",
     "jszip": "^3.10.1",
     "lazystream": "^1.0.1",
     "lie": "^3.3.0",

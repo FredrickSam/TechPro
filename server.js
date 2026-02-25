@@ -2175,10 +2175,10 @@ app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
 
     const taskId = req.params.id;
 
-    await pool.query(
-      'UPDATE todos SET completed = TRUE WHERE id = $1',
-      [taskId]
-    );
+   await pool.query(
+  'UPDATE todos SET completed = TRUE, completed_at = NOW() WHERE id = $1',
+  [taskId]
+);
 
     res.redirect('/admin/todos');
   } catch (err) {
