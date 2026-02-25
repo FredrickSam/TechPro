@@ -2166,6 +2166,8 @@ app.post('/admin/todos', isAuthenticated, async (req, res) => {
 
 // MARK COMPLETE  TO DO ROUTE
 
+// MARK COMPLETE  TO DO ROUTE
+
 app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
   try {
     // Ensure only admin can mark tasks
@@ -2176,7 +2178,7 @@ app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
     const taskId = req.params.id;
 
    await pool.query(
-  'UPDATE todos SET completed = TRUE WHERE id = $1'
+  'UPDATE todos SET completed = TRUE WHERE id = $1',
   [taskId]
 );
 
