@@ -2174,9 +2174,29 @@ app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
 
     const taskId = req.params.id;
 
-    await pool.query(
-      'UPDATE todos SET completed = TRUE, completed_at = NOW() WHERE id = $1',
+    const result = await pool.query(
+      'SELECT started_at, total_time_seconds FROM todos WHERE id = $1',
       [taskId]
+    );
+
+    const task = result.rows[0];
+
+    let additionalSeconds = 0;
+
+    if (task.started_at) {
+      const startedAt = new Date(task.started_at);
+      const now = new Date();
+      additionalSeconds = Math.floor((now - startedAt) / 1000);
+    }
+
+    await pool.query(
+      `UPDATE todos
+       SET completed = TRUE,
+           completed_at = NOW(),
+           total_time_seconds = total_time_seconds + $1,
+           started_at = NULL
+       WHERE id = $2`,
+      [additionalSeconds, taskId]
     );
 
     res.redirect('/admin/todos');
