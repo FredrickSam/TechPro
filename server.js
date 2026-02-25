@@ -2176,7 +2176,7 @@ app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
     const taskId = req.params.id;
 
    await pool.query(
-  'UPDATE todos SET completed = TRUE, completed_at = NOW() WHERE id = $1',
+  'UPDATE todos SET completed = TRUE WHERE id = $1'
   [taskId]
 );
 
@@ -2233,40 +2233,7 @@ app.post('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
   }
 });
 
-//  ADD ROUTE TO GENERATE CSV
-const { Parser } = require('json2csv'); // npm install json2csv
 
-app.get('/admin/todos/download', isAuthenticated, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).send('Access denied');
-    }
-
-    const result = await pool.query('SELECT * FROM todos ORDER BY created_at DESC');
-    const todos = result.rows;
-
-    const fields = [
-      { label: 'Title', value: 'title' },
-      { label: 'Description', value: 'description' },
-      { label: 'Priority', value: 'priority' },
-      { label: 'Due Date', value: row => row.due_date ? row.due_date.toISOString() : '' },
-      { label: 'Completed', value: row => row.completed ? 'Yes' : 'No' },
-      { label: 'Completed At', value: row => row.completed_at ? row.completed_at.toISOString() : '' },
-      { label: 'Created At', value: row => row.created_at.toISOString() },
-    ];
-
-    const json2csvParser = new Parser({ fields });
-    const csv = json2csvParser.parse(todos);
-
-    res.header('Content-Type', 'text/csv');
-    res.attachment('admin_tasks_report.csv');
-    return res.send(csv);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
-  }
-});
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
 app.post('/pay/card', isAuthenticated, async (req, res) => {
   const { course_id, course_name, amount } = req.body;
@@ -3754,8 +3721,7 @@ app.get('/admin/todos', isAuthenticated, async (req, res) => {
                     : 'No deadline'
                 }
               </p>
-<a href="/admin/todos/download" class="btn btn-primary mb-3">
-  ⬇️ Download Tasks Report
+
 </a>
        ${
   !task.completed
