@@ -1245,25 +1245,57 @@ ORDER BY e.enrolled_at DESC
       </tr>
     `).join('');
 
-    res.send(`
-      <h2>Pending Enrollments</h2>
-      <table class="table table-bordered">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th>Email</th>
-            <th>Course</th>
-            <th>Transaction Code</th>
-            <th>Phone</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || '<tr><td colspan="6">No pending enrollments</td></tr>'}
-        </tbody>
-      </table>
-    `);
+   res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending Enrollments</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
 
+  <div class="container py-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="fw-bold">🕒 Pending Enrollments</h2>
+      <a href="/admin/dashboard" class="btn btn-secondary btn-sm">← Back</a>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+
+        <table class="table table-hover table-striped mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Course</th>
+              <th>Transaction Code</th>
+              <th>Phone</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `
+              <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                  No pending enrollments
+                </td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
+`);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
