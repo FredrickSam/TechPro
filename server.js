@@ -1209,19 +1209,19 @@ app.get('/admin/pending-enrollments', isAuthenticated, async (req, res) => {
 
   try {
     const result = await pool.query(`
-      SELECT 
-        e.id,
-        u."Name" AS user_name,
-        u."Email" AS email,
-        c."name" AS course_name,
-        e.transaction_code,
-        e.phone_number,
-        e.enrolled_at
-      FROM enrollments e
-      JOIN users u ON e.user_id = u.id
-      JOIN courses c ON e.course_id = c.id
-      WHERE e.status = 'pending'
-      ORDER BY e.enrolled_at DESC
+ SELECT 
+  e.id,
+  u.name AS user_name,
+  u.email AS email,
+  c.name AS course_name,
+  e.transaction_code,
+  e.phone_number,
+  e.enrolled_at
+FROM enrollments e
+JOIN users u ON e.user_id = u.id
+JOIN courses c ON e.course_id = c.id
+WHERE e.status = 'pending'
+ORDER BY e.enrolled_at DESC
     `);
 
     const rows = result.rows.map(enrollment => `
