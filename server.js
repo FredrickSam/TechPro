@@ -1163,8 +1163,8 @@ app.get('/payment', isAuthenticated, async (req, res) => {
             <h5>📌 Payment Instructions</h5>
             <p>
               Pay via M-Pesa Till:<br>
-              <strong>Till Number: 123456</strong><br>
-              Business Name: TechPro
+              <strong>Till Number:4128764</strong><br>
+              Business Name: FREDRICK SIRIMA OUMA 
             </p>
 
             <p class="text-danger">
