@@ -1211,8 +1211,8 @@ app.get('/admin/pending-enrollments', isAuthenticated, async (req, res) => {
     const result = await pool.query(`
       SELECT 
         e.id,
-        u.name AS user_name,
-        u.email,
+        u.Name AS user_name,
+        u.Email,
         c.name AS course_name,
         e.transaction_code,
         e.phone_number,
