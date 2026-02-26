@@ -207,11 +207,12 @@ const pool = new Pool({
     res.json({ received: true });
   }
 );
+*/
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-*/
+
 
 /* 🔹 Passport setup */
 passport.serializeUser((user, done) => {
