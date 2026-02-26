@@ -8,8 +8,8 @@ console.log(
 console.log('EMAIL_USER:', process.env.EMAIL_USER);
 console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'LOADED' : 'MISSING');
 
-const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+//const Stripe = require('stripe');
+//const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const express = require('express');
 const session = require('express-session');
@@ -155,7 +155,7 @@ const pool = new Pool({
 /* =====================================================
    🔹 STRIPE WEBHOOK (MUST COME BEFORE BODY PARSERS)
    ===================================================== */
-app.post(
+ /*app.post(
   '/stripe/webhook',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
@@ -210,6 +210,8 @@ app.post(
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+
+*/
 
 /* 🔹 Passport setup */
 passport.serializeUser((user, done) => {
@@ -393,6 +395,9 @@ const slides = await pool.query(
     <a href="/admin/expenses" class="btn btn-success">Expenditure Tracker</a>
     <a href="/admin/users" class="btn btn-primary">Manage Users</a>
     <a href="/admin/todos" class="btn btn-dark">📝 Task Manager</a>
+   <a href="/admin/pending-enrollments" class="btn btn-warning">
+  🕒 Pending Enrollments
+</a>
   </div>
 
   <!-- HOME EDITOR -->
@@ -1122,7 +1127,6 @@ app.get('/payment', isAuthenticated, async (req, res) => {
   const { course_id } = req.query;
 
   try {
-    // Fetch the course from the database
     const result = await pool.query(
       'SELECT id, name, description, price, image_url FROM courses WHERE id = $1',
       [course_id]
@@ -1138,41 +1142,185 @@ app.get('/payment', isAuthenticated, async (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Enroll - ${course.name}</title>
+        <title>Complete Enrollment - ${course.name}</title>
         <link
           href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
           rel="stylesheet"
         >
-        <link rel="stylesheet" href="/css/styles.css">
       </head>
       <body class="container mt-5">
-        <div class="card mx-auto" style="max-width: 600px;">
-          <img src="${course.image_url}" class="card-img-top img-fluid" alt="${course.name}">
-          <div class="card-body">
-            <h3 class="card-title">${course.name}</h3>
-            <p class="card-text">${course.description}</p>
-            <p><strong>Price:</strong> $${course.price}</p>
 
-            <form action="/pay/card" method="POST">
+        <div class="card mx-auto" style="max-width: 600px;">
+          <img src="${course.image_url}" class="card-img-top img-fluid">
+          <div class="card-body">
+
+            <h3>${course.name}</h3>
+            <p>${course.description}</p>
+            <p><strong>Price:</strong> KES ${course.price}</p>
+
+            <hr>
+
+            <h5>📌 Payment Instructions</h5>
+            <p>
+              Pay via M-Pesa Till:<br>
+              <strong>Till Number: 123456</strong><br>
+              Business Name: TechPro
+            </p>
+
+            <p class="text-danger">
+              After payment, enter your M-Pesa transaction code below.
+            </p>
+
+            <form action="/submit-payment" method="POST">
               <input type="hidden" name="course_id" value="${course.id}">
-              <input type="hidden" name="course_name" value="${course.name}">
-              <input type="hidden" name="amount" value="${course.price}">
-              <button class="btn btn-primary btn-lg w-100">
-                💳 Pay with Card
+              
+              <div class="mb-3">
+                <label class="form-label">M-Pesa Transaction Code</label>
+                <input type="text" name="transaction_code" class="form-control" required>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Phone Number Used to Pay</label>
+                <input type="text" name="phone_number" class="form-control" required>
+              </div>
+
+              <button class="btn btn-success w-100">
+                Submit Payment for Confirmation
               </button>
             </form>
+
           </div>
         </div>
+
       </body>
       </html>
     `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+// ADMIN ROUTE TO VIEW PENDING ENROLLMENTS
+app.get('/admin/pending-enrollments', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        e.id,
+        u.name AS user_name,
+        u.email,
+        c.name AS course_name,
+        e.transaction_code,
+        e.phone_number,
+        e.enrolled_at
+      FROM enrollments e
+      JOIN users u ON e.user_id = u.id
+      JOIN courses c ON e.course_id = c.id
+      WHERE e.status = 'pending'
+      ORDER BY e.enrolled_at DESC
+    `);
+
+    const rows = result.rows.map(enrollment => `
+      <tr>
+        <td>${enrollment.user_name}</td>
+        <td>${enrollment.email}</td>
+        <td>${enrollment.course_name}</td>
+        <td>${enrollment.transaction_code}</td>
+        <td>${enrollment.phone_number}</td>
+        <td>
+          <form action="/admin/approve-enrollment" method="POST" style="display:inline;">
+            <input type="hidden" name="id" value="${enrollment.id}">
+            <button class="btn btn-success btn-sm">Approve</button>
+          </form>
+          <form action="/admin/reject-enrollment" method="POST" style="display:inline;">
+            <input type="hidden" name="id" value="${enrollment.id}">
+            <button class="btn btn-danger btn-sm">Reject</button>
+          </form>
+        </td>
+      </tr>
+    `).join('');
+
+    res.send(`
+      <h2>Pending Enrollments</h2>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Course</th>
+            <th>Transaction Code</th>
+            <th>Phone</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="6">No pending enrollments</td></tr>'}
+        </tbody>
+      </table>
+    `);
+
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
   }
 });
 
-// ENROLMENT MILDWARE
+//APPROVE ENROLLMENT
+app.post('/admin/approve-enrollment', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  const { id } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE enrollments
+       SET status = 'approved',
+           confirmed_by_admin = true
+       WHERE id = $1`,
+      [id]
+    );
+
+    res.redirect('/admin/pending-enrollments');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error approving enrollment');
+  }
+});
+
+//REJECT ENROLLMENT
+app.post('/admin/reject-enrollment', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  const { id } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE enrollments
+       SET status = 'rejected',
+           confirmed_by_admin = false
+       WHERE id = $1`,
+      [id]
+    );
+
+    res.redirect('/admin/pending-enrollments');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error rejecting enrollment');
+  }
+});
+
+
+// ENROLLMENT MIDDLEWARE
 function isEnrolled() {
   return async (req, res, next) => {
     try {
@@ -1180,12 +1328,16 @@ function isEnrolled() {
       const courseId = req.params.courseId; // or req.params.id
 
       const result = await pool.query(
-        'SELECT 1 FROM enrollments WHERE user_id = $1 AND course_id = $2',
+        `SELECT 1 
+         FROM enrollments 
+         WHERE user_id = $1 
+           AND course_id = $2
+           AND status = 'approved'`,
         [userId, courseId]
       );
 
       if (result.rows.length === 0) {
-        return res.redirect('/courses');
+        return res.redirect('/courses'); // or show "not enrolled" message
       }
 
       next();
@@ -1195,8 +1347,6 @@ function isEnrolled() {
     }
   };
 }
- 
-
 
 // ACCESS COURSE ROUTE
 app.get(
@@ -2308,7 +2458,7 @@ app.post('/admin/todos/:id/stop', isAuthenticated, async (req, res) => {
 });
 
 /* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
-app.post('/pay/card', isAuthenticated, async (req, res) => {
+/*app.post('/pay/card', isAuthenticated, async (req, res) => {
   const { course_id, course_name, amount } = req.body;
   const userId = req.user.id; // from Passport
 
@@ -2347,8 +2497,11 @@ app.post('/pay/card', isAuthenticated, async (req, res) => {
   }
 });
 
+*/
 
 /* 🔹 Payment Success & Cancel Pages */
+
+/*
 app.get('/payment-success', isAuthenticated, (req, res) => {
   res.send(`
     <h2>Payment Successful 🎉</h2>
@@ -2364,7 +2517,38 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
   `);
 });
 
+*/
 
+//  SUBMIT-PAYMENT ROUTE
+app.post('/submit-payment', isAuthenticated, async (req, res) => {
+  const { course_id, transaction_code, phone_number } = req.body;
+  const user_id = req.user.id;
+
+  try {
+    await pool.query(
+      `INSERT INTO enrollments 
+       (user_id, course_id, transaction_code, phone_number, status)
+       VALUES ($1, $2, $3, $4, 'pending')
+       ON CONFLICT (user_id, course_id)
+       DO UPDATE SET
+         transaction_code = EXCLUDED.transaction_code,
+         phone_number = EXCLUDED.phone_number,
+         status = 'pending',
+         confirmed_by_admin = false`,
+      [user_id, course_id, transaction_code, phone_number]
+    );
+
+    res.send(`
+      <h3>✅ Payment Submitted</h3>
+      <p>Your enrollment is pending confirmation.</p>
+      <p>You will gain access once admin verifies your payment.</p>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error submitting payment');
+  }
+});
 //SALES TRACKING
 app.get(
   '/admin/sales',
