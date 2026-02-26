@@ -2575,6 +2575,7 @@ app.post('/submit-payment', isAuthenticated, async (req, res) => {
       <h3>✅ Payment Submitted</h3>
       <p>Your enrollment is pending confirmation.</p>
       <p>You will gain access once admin verifies your payment.</p>
+       <a href="/courses">Browse Courses</a>
     `);
 
   } catch (err) {
