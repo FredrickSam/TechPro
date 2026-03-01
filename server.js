@@ -2569,6 +2569,8 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
 app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const { course_id, transaction_code, phone_number } = req.body;
 
+  const user_id = req.session.user_id;
+  
   // Validate transaction code
   const mpesaRegex = /^[A-Z0-9]{10}$/;
 
