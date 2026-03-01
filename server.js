@@ -1193,8 +1193,8 @@ app.get('/payment', isAuthenticated, async (req, res) => {
     type="tel"
     name="phone_number"
     class="form-control"
-    pattern="^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$"
-    title="Enter a valid Kenyan phone number (07XXXXXXXX, 01XXXXXXXX or 2547XXXXXXXX)"
+    pattern="^(?:\+254|254|0)(?:7|1)[0-9]{8}$"
+    title="Enter a valid Kenyan phone number (07XXXXXXXX, 01XXXXXXXX, 254XXXXXXXXX or +254XXXXXXXXX)"
     required>
 </div>
 
