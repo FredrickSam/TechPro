@@ -1175,15 +1175,28 @@ app.get('/payment', isAuthenticated, async (req, res) => {
             <form action="/submit-payment" method="POST">
               <input type="hidden" name="course_id" value="${course.id}">
               
-              <div class="mb-3">
-                <label class="form-label">M-Pesa Transaction Code</label>
-                <input type="text" name="transaction_code" class="form-control" required>
-              </div>
+             <div class="mb-3">
+  <label class="form-label">M-Pesa Transaction Code</label>
+  <input 
+    type="text" 
+    name="transaction_code" 
+    class="form-control"
+    pattern="^[A-Z0-9]{10}$"
+    title="Enter a valid M-Pesa code (10 uppercase letters/numbers)"
+    maxlength="10"
+    required>
+</div>
 
-              <div class="mb-3">
-                <label class="form-label">Phone Number Used to Pay</label>
-                <input type="text" name="phone_number" class="form-control" required>
-              </div>
+<div class="mb-3">
+  <label class="form-label">Phone Number Used to Pay</label>
+  <input 
+    type="tel"
+    name="phone_number"
+    class="form-control"
+    pattern="^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$"
+    title="Enter a valid Kenyan phone number (07XXXXXXXX, 01XXXXXXXX or 2547XXXXXXXX)"
+    required>
+</div>
 
               <button class="btn btn-success w-100">
                 Submit Payment for Confirmation
@@ -2555,8 +2568,22 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
 //  SUBMIT-PAYMENT ROUTE
 app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const { course_id, transaction_code, phone_number } = req.body;
-  const user_id = req.user.id;
 
+  // Validate transaction code
+  const mpesaRegex = /^[A-Z0-9]{10}$/;
+
+  // Validate Kenyan phone
+  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;
+
+  if (!mpesaRegex.test(transaction_code)) {
+    return res.status(400).send("Invalid M-Pesa transaction code format.");
+  }
+
+  if (!phoneRegex.test(phone_number)) {
+    return res.status(400).send("Invalid Kenyan phone number.");
+  }
+
+ 
   try {
     await pool.query(
       `INSERT INTO enrollments 
