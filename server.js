@@ -1,0 +1,4336 @@
+require('dotenv').config();
+
+console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+console.log(
+  'GOOGLE_CLIENT_SECRET:',
+  process.env.GOOGLE_CLIENT_SECRET ? 'LOADED' : 'MISSING'
+);
+console.log('EMAIL_USER:', process.env.EMAIL_USER);
+console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'LOADED' : 'MISSING');
+
+//const Stripe = require('stripe');
+//const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+const express = require('express');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const { Pool } = require('pg');
+
+const path = require('path');
+const multer = require('multer'); 
+
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+
+const app = express();
+
+app.set('trust proxy', 1);
+
+const axios = require("axios");
+const moment = require("moment");
+const PORT = process.env.PORT || 3000;
+
+// Multer storage configuration
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, path.join(__dirname, 'public/pdf'));
+    } else {
+      cb(null, path.join(__dirname, 'public/images'));
+    }
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueName + ext);
+  }
+});
+
+// File filter (only images + PDFs allowed)
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+    'image/webp',
+    'application/pdf'
+  ];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only images and PDF files are allowed'), false);
+  }
+};
+
+// UPLOAD MILDWARE
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
+});
+
+// SLIDESHOW UPLOAD middleware
+const slideshowStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'public/uploads/slideshow'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+    cb(null, name);
+  }
+});
+
+const slideshowFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) cb(null, true);
+  else cb(new Error('Only images allowed for slideshow'), false);
+};
+
+const uploadSlideshow = multer({
+  storage: slideshowStorage,
+  fileFilter: slideshowFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+// MPESA ACCESS ROUTE
+
+
+// --- M-PESA ACCESS TOKEN HELPER ---
+
+async function getMpesaAccessToken() {
+  const auth = Buffer.from(
+    `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+  ).toString("base64");
+
+  const url =
+    process.env.MPESA_ENV === "live"
+      ? "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+      : "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+
+  return response.data.access_token;
+}
+
+// --- TEST ROUTE FOR ACCESS TOKEN ---
+
+app.get("/api/mpesa/token", async (req, res) => {
+  try {
+    const token = await getMpesaAccessToken();
+    res.json({ access_token: token });
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    res.status(500).json(error.response?.data || error.message);
+  }
+});
+
+
+/* 🔹 PostgreSQL connection */
+
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // used in production
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false,
+
+  // fallback for local development
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
+
+/* =====================================================
+   🔹 STRIPE WEBHOOK (MUST COME BEFORE BODY PARSERS)
+   ===================================================== */
+ /*app.post(
+  '/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error('❌ Webhook signature error:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+
+      console.log('✅ Payment confirmed:', session.id);
+
+      const userId = session.metadata.user_id;
+      const courseId = session.metadata.course_id;
+
+      await pool.query(
+        `INSERT INTO payments
+         (user_id, course_id, stripe_session_id, amount, currency, status)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          userId,
+          courseId,
+          session.id,
+          session.amount_total,
+          session.currency,
+          'paid'
+        ]
+      );
+      await pool.query(
+  `INSERT INTO enrollments (user_id, course_id)
+   VALUES ($1, $2)
+   ON CONFLICT DO NOTHING`,
+  [userId, courseId]
+  
+);
+ console.log('✅ Enrollment inserted via webhook:', userId, courseId);
+    }
+
+    res.json({ received: true });
+  }
+);
+*/
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+
+
+
+/* 🔹 Passport setup */
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+  done(null, result.rows[0]);
+});
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const email = profile.emails[0].value;
+        const username = profile.displayName;
+
+        const existingUser = await pool.query(
+          'SELECT * FROM users WHERE email = $1',
+          [email]
+        );
+
+        if (existingUser.rows.length > 0) {
+          return done(null, existingUser.rows[0]);
+        }
+
+        const newUser = await pool.query(
+          `INSERT INTO users (username, email)
+           VALUES ($1, $2)
+           RETURNING *`,
+          [username, email]
+        );
+
+        done(null, newUser.rows[0]);
+      } catch (err) {
+        done(err, null);
+      }
+    }
+  )
+);
+
+/* 🔹 Body parsers (AFTER webhook) */
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+
+/* 🔹 Session middleware (REQUIRED for Passport) */
+app.use(
+  session({
+    name: 'mywebsite-session',
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    }
+  })
+);
+
+/* 🔹 Passport middleware (AFTER session) */
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+/* 🔹 Auth middleware */
+function isAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.redirect('/login');
+}
+
+/* =========================
+   ADMIN HELPERS & MIDDLEWARE
+   ========================= */
+
+// 🔐 Admin access control (SECURITY)
+function isAdmin(req, res, next) {
+  if (req.isAuthenticated() && req.user.role === "admin") {
+    return next();
+  }
+  return res.status(404).send("Page not found");
+}
+
+// 👁️ Admin UI helper (VISIBILITY)
+function adminLink(req) {
+  return req.user && req.user.role === "admin"
+    ? `<li><a class="dropdown-item" href="/admin">Admin Dashboard</a></li>`
+    : ``;
+}
+
+// ADMIN DASHBOARD
+app.get('/admin', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const usersCount = await pool.query('SELECT COUNT(*) FROM users');
+    const coursesCount = await pool.query('SELECT COUNT(*) FROM courses');
+    const enrollmentsCount = await pool.query('SELECT COUNT(*) FROM enrollments');
+    const paymentsCount = await pool.query('SELECT COUNT(*) FROM payments');
+
+    // 🔹 Fetch Home Content for editing
+    const homeContent = await pool.query(
+      "SELECT * FROM home_content WHERE section IN ('profile', 'bio', 'marquee')"
+    );
+
+    const profile = homeContent.rows.find(r => r.section === 'profile');
+    const bio = homeContent.rows.find(r => r.section === 'bio');
+    const marquee = homeContent.rows.find(r => r.section === 'marquee');
+
+    // GET SLIDESHOW
+const slides = await pool.query(
+  "SELECT * FROM home_content WHERE section='slideshow' ORDER BY created_at"
+);
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+  <h2 class="mb-4 text-center">🛠 Admin Dashboard</h2>
+
+  <!-- STATS -->
+  <div class="row text-center">
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Total Users</h5>
+          <h3>${usersCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Total Courses</h5>
+          <h3>${coursesCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Enrollments</h5>
+          <h3>${enrollmentsCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 mb-3">
+      <div class="card shadow">
+        <div class="card-body">
+          <h5>Payments</h5>
+          <h3>${paymentsCount.rows[0].count}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="my-4">
+
+  <!-- ACTION BUTTONS -->
+  <div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="/admin/courses/new" class="btn btn-success">➕ Upload Course</a>
+    <a href="/admin/courses" class="btn btn-primary">📚 Manage Courses</a>
+    <a href="/admin/enrollments" class="btn btn-warning">👥 View Enrollments</a>
+    <a href="/admin/sales" class="btn btn-primary">📊 View Sales</a>
+    <a href="/admin/profile-items" class="btn btn-info">🧩 Manage Profile Content</a>
+    <a href="/admin/expenses" class="btn btn-success">Expenditure Tracker</a>
+    <a href="/admin/users" class="btn btn-primary">Manage Users</a>
+    <a href="/admin/todos" class="btn btn-dark">📝 Task Manager</a>
+   <a href="/admin/pending-enrollments" class="btn btn-warning">
+  🕒 Pending Enrollments
+</a>
+  </div>
+
+  <!-- HOME EDITOR -->
+  <hr class="my-5">
+  <h4 class="text-center mb-4">🏠 Edit Home Page Content</h4>
+
+  <form action="/admin/home/text" method="POST" class="mx-auto" style="max-width:700px;">
+    <div class="mb-3">
+      <label class="form-label">Name</label>
+      <input type="text" name="name" class="form-control" value="${profile?.title || ''}" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Title / Role</label>
+      <input type="text" name="role" class="form-control" value="${profile?.content || ''}" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Bio</label>
+      <textarea name="bio" rows="4" class="form-control" required>${bio?.content || ''}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Scrolling Message</label>
+      <input type="text" name="marquee" class="form-control" value="${marquee?.content || ''}" required>
+    </div>
+
+    <div class="text-center">
+      <button class="btn btn-primary">💾 Update Home Text</button>
+    </div>
+  </form>
+
+  <div class="text-center mt-4">
+  <hr class="my-5">
+<h4 class="text-center mb-4">📸 Manage Home Slideshow</h4>
+
+<!-- Upload new image -->
+<form action="/admin/home/slideshow/upload" method="POST" enctype="multipart/form-data" class="mb-4 text-center">
+  <input type="file" name="image" required>
+  <button class="btn btn-success">Upload Image</button>
+</form>
+
+<!-- Existing images -->
+<div class="d-flex flex-wrap justify-content-center gap-3">
+  ${slides.rows.map(slide => `
+    <div class="card text-center" style="width:150px;">
+      <img src="${slide.file_path}" class="card-img-top" style="height:120px; object-fit:cover;">
+      <div class="card-body p-2">
+        <form action="/admin/home/slideshow/delete" method="POST">
+          <input type="hidden" name="id" value="${slide.id}">
+          <button class="btn btn-sm btn-danger w-100">Delete</button>
+        </form>
+      </div>
+    </div>
+  `).join('')}
+</div>
+    <a href="/home">← Back to site</a>
+  </div>
+
+</div>
+</body>
+</html>
+`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Admin dashboard error');
+  }
+});
+
+
+
+// HOME POST ROUTE
+
+app.post('/admin/home/text', isAuthenticated, isAdmin, async (req, res) => {
+  const { name, role, bio, marquee } = req.body;
+
+  await pool.query(
+    "UPDATE home_content SET title=$1, content=$2 WHERE section='profile'",
+    [name, role]
+  );
+
+  await pool.query(
+    "UPDATE home_content SET content=$1 WHERE section='bio'",
+    [bio]
+  );
+
+  await pool.query(
+    "UPDATE home_content SET content=$1 WHERE section='marquee'",
+    [marquee]
+  );
+
+  res.redirect('/admin');
+});
+
+// POST ROUTE FOR SLIDESHOWUPLOADS
+app.post('/admin/home/slideshow/upload', isAuthenticated, isAdmin, uploadSlideshow.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).send('No file uploaded');
+
+  const filePath = '/uploads/slideshow/' + req.file.filename; // public path
+
+  await pool.query(
+    "INSERT INTO home_content (section, file_path) VALUES ($1, $2)",
+    ['slideshow', filePath]
+  );
+
+  res.redirect('/admin');
+});
+
+// DELETE ROUTE [ HOME PAGE]
+app.post('/admin/home/slideshow/delete', isAuthenticated, isAdmin, async (req, res) => {
+  const { id } = req.body;
+
+  // Optional: delete file from server
+  const slide = await pool.query("SELECT file_path FROM home_content WHERE id=$1", [id]);
+  const fs = require('fs');
+  const filePath = slide.rows[0]?.file_path;
+  if (filePath) {
+    const fullPath = path.join(__dirname, 'public', filePath);
+    fs.unlink(fullPath, err => {
+      if (err) console.log('Failed to delete file:', err);
+    });
+  }
+
+  await pool.query("DELETE FROM home_content WHERE id=$1", [id]);
+  res.redirect('/admin');
+});
+
+// MANAGE COURSES PAGE
+
+app.get('/admin/courses', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, price FROM courses ORDER BY id'
+    );
+
+    const rows = result.rows.map(course => `
+      <tr>
+        <td>${course.id}</td>
+        <td>${course.name}</td>
+        <td>$${course.price}</td>
+        <td>
+
+        <a href="/admin/courses/edit/${course.id}"
+     class="btn btn-sm btn-primary">
+    Edit
+  </a>
+       <form
+  action="/admin/courses/delete/${course.id}"
+  method="POST"
+  onsubmit="return confirm('Delete this course?')"
+  style="display:inline;"
+>
+  <button class="btn btn-sm btn-danger">
+    Delete
+  </button>
+</form>
+
+        </td>
+      </tr>
+    `).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Manage Courses</title>
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+      </head>
+      <body class="container mt-4">
+        <h2>📚 Manage Courses</h2>
+        <a href="/admin" class="btn btn-secondary mb-3">← Back</a>
+
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to load courses');
+  }
+});
+
+// DELETE ROUTE
+app.post(
+  '/admin/courses/delete/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const courseId = req.params.id;
+
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      
+      // DELETE LESSON
+app.post(
+  '/admin/lessons/delete/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const lessonId = req.params.id;
+
+    try {
+      // Get course_id before deleting (for redirect)
+      const result = await pool.query(
+        'SELECT course_id FROM lessons WHERE id = $1',
+        [lessonId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).send('Lesson not found');
+      }
+
+      const courseId = result.rows[0].course_id;
+
+      await pool.query(
+        'DELETE FROM lessons WHERE id = $1',
+        [lessonId]
+      );
+
+      console.log(`✅ Lesson ${lessonId} deleted`);
+
+      res.redirect(`/admin/courses/edit/${courseId}`);
+
+    } catch (err) {
+      console.error('❌ Failed to delete lesson:', err);
+      res.status(500).send('Failed to delete lesson');
+    }
+  }
+);
+
+
+      // 1️⃣ Remove enrollments first (FK safe)
+      await client.query(
+        'DELETE FROM enrollments WHERE course_id = $1',
+        [courseId]
+      );
+
+      // 2️⃣ Remove payments related to course
+      await client.query(
+        'DELETE FROM payments WHERE course_id = $1',
+        [courseId]
+      );
+
+      // 3️⃣ Delete course itself
+      const result = await client.query(
+        'DELETE FROM courses WHERE id = $1 RETURNING id',
+        [courseId]
+      );
+
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).send('Course not found');
+      }
+
+      await client.query('COMMIT');
+
+      console.log(`✅ Course ${courseId} deleted by admin`);
+
+      res.redirect('/admin/courses');
+
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('❌ Delete course failed:', err);
+      res.status(500).send('Failed to delete course');
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// EDIT COURSE
+
+
+
+// SAVING EDIT CHANGES
+
+app.post(
+  '/admin/courses/edit/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const courseId = req.params.id;
+    const { name, description, price, image_url } = req.body;
+
+    try {
+      await pool.query(
+        `UPDATE courses
+         SET name=$1, description=$2, price=$3, image_url=$4
+         WHERE id=$5`,
+        [name, description, price, image_url, courseId]
+      );
+
+      res.redirect('/admin/courses');
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Failed to update course');
+    }
+  }
+);
+
+
+// VIEW ENROLLMENTS
+
+app.get('/admin/enrollments', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+   const result = await pool.query(`
+  SELECT
+    u.id AS user_id,
+    c.id AS course_id,
+    u.username,
+    u.email,
+    c.name AS course_name,
+    e.enrolled_at
+  FROM enrollments e
+  JOIN users u ON u.id = e.user_id
+  JOIN courses c ON c.id = e.course_id
+  ORDER BY e.enrolled_at DESC
+`);
+
+
+  const rows = result.rows.map(row => `
+  <tr>
+    <td>${row.username}</td>
+    <td>${row.email}</td>
+    <td>${row.course_name}</td>
+    <td>${new Date(row.enrolled_at).toLocaleString()}</td>
+    <td>
+      <form
+        method="POST"
+        action="/admin/enrollments/delete"
+        onsubmit="return confirm('Unenroll this user from the course?')"
+        style="display:inline"
+      >
+        <input type="hidden" name="user_id" value="${row.user_id}">
+        <input type="hidden" name="course_id" value="${row.course_id}">
+        <button class="btn btn-sm btn-danger">
+          ❌ Unenroll
+        </button>
+      </form>
+    </td>
+  </tr>
+`).join('');
+
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Enrollments</title>
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+      </head>
+      <body class="container mt-4">
+        <h2>👥 Enrollments</h2>
+        <a href="/admin" class="btn btn-secondary mb-3">← Back</a>
+
+        <table class="table table-striped">
+       <thead>
+  <tr>
+    <th>User</th>
+    <th>Email</th>
+    <th>Course</th>
+    <th>Date</th>
+    <th>Action</th>
+  </tr>
+</thead>
+
+          <tbody>
+            ${rows || '<tr><td colspan="4">No enrollments</td></tr>'}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to load enrollments');
+  }
+});
+
+// ADMIN UNENROLL USER FROM COURSE
+app.post(
+  '/admin/enrollments/delete',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const { user_id, course_id } = req.body;
+
+    try {
+      await pool.query(
+        `DELETE FROM enrollments
+         WHERE user_id = $1 AND course_id = $2`,
+        [user_id, course_id]
+      );
+
+      console.log(`✅ Admin unenrolled user ${user_id} from course ${course_id}`);
+      res.redirect('/admin/enrollments');
+    } catch (err) {
+      console.error('❌ Failed to unenroll:', err);
+      res.status(500).send('Failed to unenroll user');
+    }
+  }
+);
+
+
+
+// ADMIN UPLOAD PAGE
+app.get('/admin/courses/new', isAuthenticated, isAdmin, async (req, res) => {
+  const categories = await pool.query('SELECT * FROM categories');
+
+  const options = categories.rows
+    .map(c => `<option value="${c.id}">${c.name}</option>`)
+    .join('');
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create Course</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #f5f7fa;
+    }
+    .card {
+      border-radius: 14px;
+    }
+  </style>
+</head>
+
+<body class="container py-5">
+
+  <!-- HEADER -->
+  <div class="position-relative text-center mb-4">
+  <h2 class="fw-semibold">📘 Create New Course</h2>
+
+   <a href="/admin" class="btn btn-outline-secondary btn-sm">← Admin</a>
+  </div>
+</div>
+
+  <!-- FORM CARD -->
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+
+          <form method="POST" action="/admin/courses" class="row g-3">
+
+            <div class="col-12">
+              <label class="form-label">Course Name</label>
+              <input name="name" class="form-control" placeholder="e.g. Full Stack Web Development" required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea name="description" rows="4" class="form-control" placeholder="Course description..." required></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Price (KES)</label>
+              <input name="price" type="number" class="form-control" placeholder="e.g. 5000" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Image URL</label>
+              <input name="image_url" class="form-control" placeholder="https://..." required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Category</label>
+              <select name="category_id" class="form-select" required>
+                <option value="">-- Select Category --</option>
+                ${options}
+              </select>
+            </div>
+
+            <div class="col-12 d-grid mt-3">
+              <button class="btn btn-primary btn-lg">
+                Create Course
+              </button>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+  `);
+});
+// LESSONS UPLOAD
+
+app.post(
+  '/admin/lessons',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const { course_id, title, video_id, lesson_order } = req.body;
+
+    await pool.query(
+      `INSERT INTO lessons
+       (course_id, title, video_provider, video_id, lesson_order)
+       VALUES ($1, $2, 'youtube', $3, $4)`,
+      [course_id, title, video_id, lesson_order]
+    );
+
+    res.redirect(`/admin/courses/edit/${course_id}`);
+  }
+);
+
+app.get(
+  '/admin/courses/edit/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const courseId = req.params.id;
+
+    try {
+      const courseResult = await pool.query(
+        'SELECT * FROM courses WHERE id = $1',
+        [courseId]
+      );
+
+      if (courseResult.rows.length === 0) {
+        return res.status(404).send('Course not found');
+      }
+
+      const course = courseResult.rows[0];
+
+      // 🔹 Fetch lessons
+     const lessonsResult = await pool.query(
+  `SELECT id, title, lesson_order, video_id
+   FROM lessons
+   WHERE course_id = $1
+   ORDER BY lesson_order`,
+  [courseId]
+);
+
+
+      const lessonsHtml = lessonsResult.rows.length
+  ? lessonsResult.rows.map(l => `
+      <li class="mb-2">
+        <strong>Lesson ${l.lesson_order}:</strong> ${l.title}
+        <br>
+        <small>YouTube ID: ${l.video_id}</small>
+
+        <form
+          action="/admin/lessons/delete/${l.id}"
+          method="POST"
+          style="display:inline"
+          onsubmit="return confirm('Delete this lesson?')"
+        >
+          <button class="btn btn-sm btn-danger ms-2">
+            🗑 Delete
+          </button>
+        </form>
+      </li>
+    `).join('')
+  : '<p>No lessons uploaded yet.</p>';
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Edit Course</title>
+          <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet">
+        </head>
+        <body class="container mt-4">
+
+          <h2>✏️ Edit Course: ${course.name}</h2>
+
+          <form method="POST" action="/admin/courses/edit/${course.id}">
+            <div class="mb-3">
+              <label>Name</label>
+              <input class="form-control" name="name" value="${course.name}" required>
+            </div>
+
+            <div class="mb-3">
+              <label>Description</label>
+              <textarea class="form-control" name="description" required>${course.description}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label>Price</label>
+              <input type="number" class="form-control" name="price" value="${course.price}" required>
+            </div>
+
+            <div class="mb-3">
+              <label>Image URL</label>
+              <input class="form-control" name="image_url" value="${course.image_url}">
+            </div>
+
+            <button class="btn btn-success">Save Changes</button>
+            <a href="/admin/courses" class="btn btn-secondary">Back</a>
+          </form>
+
+          <hr class="my-4">
+
+          <h4>📹 Uploaded Lessons</h4>
+          <ul>${lessonsHtml}</ul>
+
+          <hr>
+
+          <h4>➕ Upload New Lesson</h4>
+
+          <form method="POST" action="/admin/lessons">
+            <input type="hidden" name="course_id" value="${course.id}">
+
+            <div class="mb-2">
+              <label>Lesson Title</label>
+              <input class="form-control" name="title" required>
+            </div>
+
+            <div class="mb-2">
+              <label>YouTube Video ID</label>
+              <input
+                class="form-control"
+                name="video_id"
+                placeholder="e.g. dQw4w9WgXcQ"
+                required>
+            </div>
+
+            <div class="mb-3">
+              <label>Lesson Order</label>
+              <input type="number" class="form-control" name="lesson_order" required>
+            </div>
+
+            <button class="btn btn-primary">Upload Lesson</button>
+          </form>
+
+        </body>
+        </html>
+      `);
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Failed to load course');
+    }
+  }
+);
+
+// DELETE LESSON
+app.post(
+  '/admin/lessons/delete/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    const lessonId = req.params.id;
+
+    try {
+      const result = await pool.query(
+        'SELECT course_id FROM lessons WHERE id = $1',
+        [lessonId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).send('Lesson not found');
+      }
+
+      const courseId = result.rows[0].course_id;
+
+      await pool.query(
+        'DELETE FROM lessons WHERE id = $1',
+        [lessonId]
+      );
+
+      res.redirect(`/admin/courses/edit/${courseId}`);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Failed to delete lesson');
+    }
+  }
+);
+
+
+// SAVE COURSE TO DB
+app.post('/admin/courses', isAuthenticated, isAdmin, async (req, res) => {
+  const { name, description, price, image_url, category_id } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO courses (name, description, price, image_url, category_id)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [name, description, price, image_url,category_id]
+    );
+
+    res.redirect('/courses');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to create course');
+  }
+});
+
+/* 🔹 Step 2: Payment Page (Fetch course from DB dynamically) */
+/* 🔹 Dynamic Payment Page with Course Image */
+/* 🔹 Payment Page (Dynamic Course with Image) */
+app.get('/payment', isAuthenticated, async (req, res) => {
+  const { course_id } = req.query;
+
+  try {
+    const result = await pool.query(
+      'SELECT id, name, description, price, image_url FROM courses WHERE id = $1',
+      [course_id]
+    );
+
+    if (result.rows.length === 0) return res.send('Course not found');
+
+    const course = result.rows[0];
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Complete Enrollment - ${course.name}</title>
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        >
+      </head>
+      <body class="container mt-5">
+
+        <div class="card mx-auto" style="max-width: 600px;">
+          <img src="${course.image_url}" class="card-img-top img-fluid">
+          <div class="card-body">
+
+            <h3>${course.name}</h3>
+            <p>${course.description}</p>
+            <p><strong>Price:</strong> KES ${course.price}</p>
+
+            <hr>
+
+            <h5>📌 Payment Instructions</h5>
+            <p>
+              Pay via M-Pesa Till:<br>
+              <strong>Till Number:4128764</strong><br>
+              Business Name: FREDRICK SIRIMA OUMA 
+            </p>
+
+            <p class="text-danger">
+              After payment, enter your M-Pesa transaction code below.
+            </p>
+
+            <form action="/submit-payment" method="POST">
+              <input type="hidden" name="course_id" value="${course.id}">
+              
+             <div class="mb-3">
+  <label class="form-label">M-Pesa Transaction Code</label>
+  <input 
+    type="text" 
+    name="transaction_code" 
+    class="form-control"
+    pattern="^[A-Z0-9]{10}$"
+    title="Enter a valid M-Pesa code (10 uppercase letters/numbers)"
+    maxlength="10"
+    required>
+</div>
+
+<div class="mb-3">
+  <label class="form-label">Phone Number Used to Pay</label>
+  <input 
+    type="tel"
+    name="phone_number"
+    class="form-control"
+    pattern="^(?:\+254|254|0)(?:7|1)[0-9]{8}$"
+    title="Enter a valid Kenyan phone number (07XXXXXXXX, 01XXXXXXXX, 254XXXXXXXXX or +254XXXXXXXXX)"
+    required>
+</div>
+
+              <button class="btn btn-success w-100">
+                Submit Payment for Confirmation
+              </button>
+            </form>
+
+          </div>
+        </div>
+
+      </body>
+      </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+// ADMIN ROUTE TO VIEW PENDING ENROLLMENTS
+app.get('/admin/pending-enrollments', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  try {
+    const result = await pool.query(`
+ SELECT 
+  e.id,
+  u.username AS user_name,
+  u.email AS email,
+  c.name AS course_name,
+  e.transaction_code,
+  e.phone_number,
+  e.enrolled_at
+FROM enrollments e
+JOIN users u ON e.user_id = u.id
+JOIN courses c ON e.course_id = c.id
+WHERE e.status = 'pending'
+ORDER BY e.enrolled_at DESC
+    `);
+
+    const rows = result.rows.map(enrollment => `
+      <tr>
+        <td>${enrollment.user_name}</td>
+        <td>${enrollment.email}</td>
+        <td>${enrollment.course_name}</td>
+        <td>${enrollment.transaction_code}</td>
+        <td>${enrollment.phone_number}</td>
+        <td>
+          <form action="/admin/approve-enrollment" method="POST" style="display:inline;">
+            <input type="hidden" name="id" value="${enrollment.id}">
+            <button class="btn btn-success btn-sm">Approve</button>
+          </form>
+          <form action="/admin/reject-enrollment" method="POST" style="display:inline;">
+            <input type="hidden" name="id" value="${enrollment.id}">
+            <button class="btn btn-danger btn-sm">Reject</button>
+          </form>
+        </td>
+      </tr>
+    `).join('');
+
+   res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pending Enrollments</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div class="container py-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="fw-bold">🕒 Pending Enrollments</h2>
+      <a href="/admin" class="btn btn-outline-secondary btn-sm">← Admin</a>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+
+        <table class="table table-hover table-striped mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Course</th>
+              <th>Transaction Code</th>
+              <th>Phone</th>
+              <th class="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `
+              <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                  No pending enrollments
+                </td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
+`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+//APPROVE ENROLLMENT
+app.post('/admin/approve-enrollment', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  const { id } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE enrollments
+       SET status = 'approved',
+           confirmed_by_admin = true
+       WHERE id = $1`,
+      [id]
+    );
+
+    res.redirect('/admin/pending-enrollments');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error approving enrollment');
+  }
+});
+
+//REJECT ENROLLMENT
+app.post('/admin/reject-enrollment', isAuthenticated, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Access denied');
+  }
+
+  const { id } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE enrollments
+       SET status = 'rejected',
+           confirmed_by_admin = false
+       WHERE id = $1`,
+      [id]
+    );
+
+    res.redirect('/admin/pending-enrollments');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error rejecting enrollment');
+  }
+});
+
+
+// ENROLLMENT MIDDLEWARE
+function isEnrolled() {
+  return async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const courseId = req.params.courseId; // or req.params.id
+
+      const result = await pool.query(
+        `SELECT 1 
+         FROM enrollments 
+         WHERE user_id = $1 
+           AND course_id = $2
+           AND status = 'approved'`,
+        [userId, courseId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.redirect('/courses'); // or show "not enrolled" message
+      }
+
+      next();
+    } catch (err) {
+      console.error('Enrollment check failed:', err);
+      res.status(500).send('Server error');
+    }
+  };
+}
+
+// ACCESS COURSE ROUTE
+app.get(
+  '/course/:courseId',
+  isAuthenticated,
+  isEnrolled(),
+  async (req, res) => {
+    const { courseId } = req.params;
+
+    try {
+      // 🔹 Get course details (INCLUDING image)
+      const courseResult = await pool.query(
+        `SELECT id, name, description, image_url
+         FROM courses
+         WHERE id = $1`,
+        [courseId]
+      );
+
+      if (courseResult.rows.length === 0) {
+        return res.send('Course not found');
+      }
+
+      const course = courseResult.rows[0];
+
+      // 🔹 Get lessons
+      const lessonsResult = await pool.query(
+        `SELECT id, title, lesson_order
+         FROM lessons
+         WHERE course_id = $1
+         ORDER BY lesson_order`,
+        [courseId]
+      );
+
+      // 🔹 Build lessons list
+      const lessonsHtml = lessonsResult.rows.length
+        ? lessonsResult.rows
+            .map(
+              (lesson) => `
+                <li class="list-group-item">
+                  <a
+                    href="/course/${courseId}/lesson/${lesson.id}"
+                    class="text-decoration-none"
+                  >
+                    ▶ Lesson ${lesson.lesson_order}: ${lesson.title}
+                  </a>
+                </li>
+              `
+            )
+            .join('')
+        : `<li class="list-group-item text-muted">No lessons yet</li>`;
+
+      // 🔹 Render responsive page
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <title>${course.name}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+
+          <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+          >
+        </head>
+
+        <body class="bg-light">
+
+          <div class="container py-4">
+
+            <div class="row g-4">
+
+              <!-- 📘 Course Info -->
+              <div class="col-12 col-lg-8">
+                <div class="card shadow-sm h-100">
+                  <img
+                    src="${course.image_url?.trim() || '/images/default-course.jpg'}"
+                    class="card-img-top img-fluid"
+                    alt="${course.name}"
+                  >
+
+                  <div class="card-body">
+                    <h2 class="card-title">${course.name}</h2>
+                    <p class="card-text">${course.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 📚 Lessons Sidebar -->
+              <div class="col-12 col-lg-4">
+                <div class="card shadow-sm">
+                  <div class="card-header bg-primary text-white">
+                    Lessons
+                  </div>
+
+                  <ul class="list-group list-group-flush">
+                    ${lessonsHtml}
+                  </ul>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- 🔙 Back button -->
+            <div class="mt-4 text-center">
+              <a href="/my-courses" class="btn btn-outline-secondary">
+                ← Back to My Courses
+              </a>
+            </div>
+
+          </div>
+
+        </body>
+        </html>
+      `);
+    } catch (err) {
+      console.error(err);
+      res.send('Error loading course');
+    }
+  }
+);
+
+//VIDEO LESSON PAGAE
+
+app.get(
+  '/course/:courseId/lesson/:lessonId',
+  isAuthenticated,
+  isEnrolled(),
+  async (req, res) => {
+    const { courseId, lessonId } = req.params;
+
+    const lessonResult = await pool.query(
+      `SELECT title, video_id
+       FROM lessons
+       WHERE id = $1 AND course_id = $2`,
+      [lessonId, courseId]
+    );
+
+    if (lessonResult.rows.length === 0) {
+      return res.send('Lesson not found');
+    }
+
+    const lesson = lessonResult.rows[0];
+
+    res.send(`
+      <h2>${lesson.title}</h2>
+
+      <iframe
+        width="100%"
+        height="450"
+        src="https://www.youtube.com/embed/${lesson.video_id}"
+        frameborder="0"
+        allowfullscreen>
+      </iframe>
+
+      <br><br>
+      <a href="/course/${courseId}">← Back to Lessons</a>
+    `);
+  }
+);
+
+
+// ==================== GET /admin/profile-items ====================
+app.get('/admin/profile-items', isAuthenticated, isAdmin, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM profile_items ORDER BY type, created_at DESC'
+  );
+
+  const rows = result.rows.map(item => `
+    <tr>
+      <td><span class="badge bg-secondary text-capitalize">${item.type}</span></td>
+      <td>${item.title}</td>
+      <td>
+        ${
+          item.file_path
+            ? item.file_path.endsWith('.pdf')
+              ? `<a href="${item.file_path}" target="_blank" class="btn btn-sm btn-outline-primary">View PDF</a>`
+              : `<img src="${item.file_path}" class="img-thumbnail" style="max-width:60px;">`
+            : '<span class="text-muted">—</span>'
+        }
+      </td>
+      <td>
+        <form
+          method="POST"
+          action="/admin/profile-items/delete/${item.id}"
+          onsubmit="return confirm('Delete item?')"
+        >
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+  `).join('');
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Profile Content</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body { background:#f5f7fa; }
+    .card { border-radius:14px; }
+  </style>
+</head>
+
+<body class="container py-5">
+
+  <!-- HEADER -->
+  <div class="position-relative text-center mb-4">
+    <h2 class="fw-semibold">👤 Manage Profile Content</h2>
+ <a href="/admin" class="btn btn-outline-secondary btn-sm">← Admin</a>
+  </div>
+  </div>
+
+  <!-- ADD ITEM -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body p-4">
+      <h5 class="mb-3">Add Profile Item</h5>
+
+      <form method="POST" action="/admin/profile-items" enctype="multipart/form-data" class="row g-3">
+
+        <div class="col-md-4">
+          <label class="form-label">Type</label>
+          <select name="type" id="type-select" class="form-select" required>
+            <option value="hobby">Hobbies</option>
+            <option value="book">Books</option>
+            <option value="work">Work</option>
+            <option value="skill">Skills</option>
+            <option value="certification">Certification</option>
+          </select>
+        </div>
+
+        <div class="col-md-8">
+          <label class="form-label">Title</label>
+          <input name="title" class="form-control" placeholder="Title" required>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="form-control" rows="3" placeholder="Optional description"></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">File (Image or PDF)</label>
+          <input type="file" name="file" class="form-control" accept="image/*,.pdf">
+        </div>
+
+        <!-- Skill Rating -->
+        <div class="col-md-6" id="rating-container" style="display:none;">
+          <label class="form-label">Skill Rating</label>
+          <select name="rating" class="form-select">
+            <option value="5">5 - Expert</option>
+            <option value="4">4 - Advanced</option>
+            <option value="3">3 - Intermediate</option>
+            <option value="2">2 - Beginner</option>
+            <option value="1">1 - Novice</option>
+          </select>
+        </div>
+
+        <div class="col-12 d-grid mt-3">
+          <button class="btn btn-primary btn-lg">Add Item</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="mb-3">Existing Items</h5>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Type</th>
+              <th>Title</th>
+              <th>File</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="4" class="text-center">No items yet</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const typeSelect = document.getElementById('type-select');
+    const ratingContainer = document.getElementById('rating-container');
+
+    function toggleRating() {
+      ratingContainer.style.display = typeSelect.value === 'skill' ? 'block' : 'none';
+    }
+
+    typeSelect.addEventListener('change', toggleRating);
+    toggleRating();
+  </script>
+   
+</body>
+
+</html>
+  `);
+});
+
+// ==================== POST /admin/profile-items ====================
+app.post(
+  '/admin/profile-items',
+  isAuthenticated,
+  isAdmin,
+  upload.single('file'), // Multer handles file upload
+  async (req, res) => {
+    const { type, title, description, rating } = req.body;
+
+    let filePath = null;
+    if (req.file) {
+      if (req.file.mimetype === 'application/pdf') {
+        filePath = `/pdf/${req.file.filename}`;
+      } else {
+        filePath = `/images/${req.file.filename}`;
+      }
+    }
+
+    const ratingValue = type === 'skill' ? rating : null;
+
+    await pool.query(
+      `INSERT INTO profile_items (type, title, description, file_path, rating)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [type, title, description, filePath, ratingValue]
+    );
+
+    res.redirect('/admin/profile-items');
+  }
+);
+
+// ==================== DELETE /admin/profile-items/:id ====================
+app.post(
+  '/admin/profile-items/delete/:id',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    await pool.query(
+      'DELETE FROM profile_items WHERE id = $1',
+      [req.params.id]
+    );
+
+    res.redirect('/admin/profile-items');
+  }
+);
+
+// ADMIN USER COUNT
+
+// ADMIN USER COUNT + SEARCH
+
+app.get('/admin/users', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const search = req.query.search || "";
+
+    // COUNT QUERY
+    const countResult = await pool.query(`SELECT COUNT(*) FROM users`);
+    const totalUsers = countResult.rows[0].count;
+
+    // USERS QUERY WITH SEARCH
+    const result = await pool.query(`
+      SELECT id, username, email, role, created_at, last_login
+FROM users
+
+      WHERE username ILIKE $1 OR email ILIKE $1
+      ORDER BY created_at DESC
+    `, [`%${search}%`]);
+
+    const users = result.rows;
+
+    const rows = users.map(user => `
+      <tr>
+        <td>${user.id}</td>
+        <td>${user.username}</td>
+        <td>${user.email}</td>
+        <td>${user.role}</td>
+        <td>${new Date(user.last_login).toLocaleString('en-KE', {
+  timeZone: 'Africa/Nairobi'
+})
+}</td>
+<td>${
+  user.last_login
+    ? new Date(user.last_login).toLocaleString('en-KE', {
+  timeZone: 'Africa/Nairobi'
+})
+
+    : 'Never'
+}</td>
+<td>
+
+        <td>
+          <form method="POST" action="/admin/users/delete/${user.id}" 
+                onsubmit="return confirm('Delete this user?')">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+    `).join('');
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Manage Users</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+      </head>
+      <body class="container py-5">
+
+        <h2 class="mb-4">User Management</h2>
+
+        <!-- SUMMARY CARD -->
+        <div class="card mb-4 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Total Users</h5>
+            <h2 class="text-primary">${totalUsers}</h2>
+          </div>
+        </div>
+
+        <!-- SEARCH -->
+        <form class="mb-4">
+          <div class="input-group">
+            <input 
+              type="text" 
+              name="search" 
+              class="form-control" 
+              placeholder="Search username or email..."
+              value="${search}"
+            >
+            <button class="btn btn-primary">Search</button>
+            <a href="/admin/users" class="btn btn-outline-secondary">Reset</a>
+          </div>
+        </form>
+
+        <!-- ADD USER FORM -->
+        <h5>Add New User</h5>
+        <form method="POST" action="/admin/users/add" class="row g-3 mb-5">
+          <div class="col-md-3">
+            <input name="username" class="form-control" placeholder="Username" required>
+          </div>
+          <div class="col-md-3">
+            <input name="email" type="email" class="form-control" placeholder="Email" required>
+          </div>
+          <div class="col-md-3">
+            <input name="password" type="password" class="form-control" placeholder="Password" required>
+          </div>
+          <div class="col-md-2">
+            <select name="role" class="form-control">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <button class="btn btn-success">Add</button>
+          </div>
+        </form>
+
+        <!-- USERS TABLE -->
+        <table class="table table-bordered table-striped">
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Role</th>
+             <th>Joined</th>
+            <th>Last Login</th>
+            <th>Action</th>
+
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td colspan="6" class="text-center">No users found</td></tr>`}
+          </tbody>
+        </table>
+
+        <a href="/admin" class="btn btn-secondary mt-3">Back</a>
+
+      </body>
+      </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading users');
+  }
+});
+
+
+// USER DELETE ROUTE
+
+app.post('/admin/users/delete/:id', isAuthenticated, async (req, res) => {
+  try {
+    // 1️⃣ Make sure user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    // 2️⃣ Prevent admin from deleting themselves
+    if (parseInt(req.params.id) === req.user.id) {
+      return res.send("You cannot delete your own account.");
+    }
+
+    // 3️⃣ Perform delete
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+
+    res.redirect('/admin/users');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error deleting user');
+  }
+});
+
+
+// USER ADD ROUTE
+app.post('/admin/users/add', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const { username, email, password, role } = req.body;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      `INSERT INTO users (username, email, password, role)
+       VALUES ($1, $2, $3, $4)`,
+      [username, email, hashedPassword, role]
+    );
+
+    res.redirect('/admin/users');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error adding user');
+  }
+});
+
+// ==================== GET /admin/expenses ====================
+app.get('/admin/expenses', isAuthenticated, isAdmin, async (req, res) => {
+  // ================== MAIN DATA ==================
+  const expensesResult = await pool.query(`
+    SELECT * FROM expenses
+    ORDER BY expense_date DESC
+  `);
+
+  const totalResult = await pool.query(`
+    SELECT COALESCE(SUM(amount), 0) AS total FROM expenses
+  `);
+
+  // ================== MONTHLY SUMMARY ==================
+  const monthlyResult = await pool.query(`
+    SELECT
+      TO_CHAR(expense_date, 'YYYY-MM') AS month,
+      SUM(amount) AS total
+    FROM expenses
+    GROUP BY month
+    ORDER BY month DESC
+    LIMIT 6
+  `);
+
+  // ================== CATEGORY TOTALS ==================
+  const categoryResult = await pool.query(`
+    SELECT category, SUM(amount) AS total
+    FROM expenses
+    GROUP BY category
+    ORDER BY total DESC
+  `);
+
+  const total = totalResult.rows[0].total;
+
+  // ================== TABLE ROWS ==================
+  const rows = expensesResult.rows.map(exp => `
+    <tr>
+      <td>${exp.title}</td>
+      <td><span class="badge bg-secondary">${exp.category}</span></td>
+      <td>KES ${Number(exp.amount).toLocaleString()}</td>
+      <td>${exp.expense_date.toLocaleDateString('en-CA')}</td>
+      <td>
+        <form method="POST" action="/admin/expenses/delete/${exp.id}">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+  `).join('');
+
+  // ================== MONTHLY CARDS ==================
+  const monthlyCards = monthlyResult.rows.map(m => `
+    <div class="col-md-4 mb-3">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <small class="text-muted">${m.month}</small>
+          <h5 class="mt-2">KES ${Number(m.total).toLocaleString()}</h5>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // ================== CATEGORY LIST ==================
+  const categoryList = categoryResult.rows.map(c => `
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      ${c.category}
+      <span class="fw-bold">KES ${Number(c.total).toLocaleString()}</span>
+    </li>
+  `).join('');
+
+  // ================== PAGE ==================
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Expenses</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #f5f7fa;
+    }
+    .card {
+      border-radius: 14px;
+    }
+    .badge {
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+
+<body class="container py-4">
+
+  <!-- HEADER -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>💸 Expense Tracker</h2>
+    <a href="/admin" class="btn btn-outline-secondary btn-sm">← Admin</a>
+  </div>
+
+  <!-- TOTAL -->
+  <div class="alert alert-primary text-center fs-5">
+    Total Spent: <strong>KES ${Number(total).toLocaleString()}</strong>
+  </div>
+
+  <!-- ADD EXPENSE -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Add Expense</h5>
+
+      <form method="POST" action="/admin/expenses" class="row g-3">
+        <div class="col-md-3">
+          <input name="title" class="form-control" placeholder="Title" required>
+        </div>
+
+        <div class="col-md-2">
+          <select name="category" class="form-select" required>
+            <option>Food</option>
+            <option>Transport</option>
+            <option>Bills</option>
+            <option>Hosting</option>
+            <option>Education</option>
+            <option>Misc</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <input type="number" name="amount" step="0.01" class="form-control" placeholder="KES" required>
+        </div>
+
+        <div class="col-md-3">
+          <input type="date" name="expense_date" class="form-control">
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button class="btn btn-primary">Add Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="row mb-4">
+    <div class="col-md-8">
+      <h5 class="mb-3">Monthly Summary</h5>
+      <div class="row">
+        ${monthlyCards || '<p class="text-muted">No data available</p>'}
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <h5 class="mb-3">Category Totals</h5>
+      <ul class="list-group shadow-sm">
+        ${categoryList || '<li class="list-group-item">No data</li>'}
+      </ul>
+    </div>
+  </div>
+
+    <!-- EXPORT -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Download Monthly Report</h5>
+
+      <form class="row g-3" onsubmit="return false;">
+        <div class="col-md-4">
+          <input type="month" id="exportMonth" class="form-control" required>
+        </div>
+
+        <div class="col-md-4 d-grid">
+          <button class="btn btn-success" onclick="downloadExcel()">
+            ⬇ Excel
+          </button>
+        </div>
+
+        <div class="col-md-4 d-grid">
+          <button class="btn btn-danger" onclick="downloadPDF()">
+            ⬇ PDF
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+ 
+<script>
+  function downloadExcel() {
+    const month = document.getElementById('exportMonth').value;
+    if (!month) {
+      alert('Select month');
+      return;
+    }
+    window.location = "/admin/expenses/export/excel?month=" + month;
+  }
+
+  function downloadPDF() {
+    const month = document.getElementById('exportMonth').value;
+    if (!month) {
+      alert('Select month');
+      return;
+    }
+    window.location = "/admin/expenses/export/pdf?month=" + month;
+  }
+</script>
+  </body>
+</html>
+  `);
+});
+
+// ==================== POST /admin/expenses ====================
+app.post('/admin/expenses', isAuthenticated, isAdmin, async (req, res) => {
+  const { title, category, amount, expense_date } = req.body;
+
+  await pool.query(
+    `
+    INSERT INTO expenses (title, category, amount, expense_date)
+    VALUES ($1, $2, $3, $4::DATE)
+    `,
+    [
+      title,
+      category,
+      amount,
+      expense_date || new Date().toISOString().slice(0, 10)
+    ]
+  );
+
+  res.redirect('/admin/expenses');
+});
+
+// ==================== DELETE /admin/expenses/:id ====================
+app.post('/admin/expenses/delete/:id', isAuthenticated, isAdmin, async (req, res) => {
+  await pool.query(
+    'DELETE FROM expenses WHERE id = $1',
+    [req.params.id]
+  );
+
+  res.redirect('/admin/expenses');
+});
+
+// ADMIN EXPENSES/EXPORT/EXCEL
+const ExcelJS = require('exceljs');
+
+app.get('/admin/expenses/export/excel', isAuthenticated, isAdmin, async (req, res) => {
+  const { month } = req.query; // YYYY-MM
+
+  const result = await pool.query(
+    `
+    SELECT title, category, amount, expense_date
+    FROM expenses
+    WHERE TO_CHAR(expense_date, 'YYYY-MM') = $1
+    ORDER BY expense_date ASC
+    `,
+    [month]
+  );
+
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(`Expenses ${month}`);
+
+  sheet.columns = [
+    { header: 'Title', key: 'title', width: 25 },
+    { header: 'Category', key: 'category', width: 15 },
+    { header: 'Amount (KES)', key: 'amount', width: 15 },
+    { header: 'Date', key: 'expense_date', width: 15 }
+  ];
+
+  result.rows.forEach(row => {
+    sheet.addRow({
+      title: row.title,
+      category: row.category,
+      amount: row.amount,
+      expense_date: row.expense_date.toISOString().split('T')[0]
+    });
+  });
+
+  sheet.getRow(1).font = { bold: true };
+
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=expenses-${month}.xlsx`
+  );
+
+  await workbook.xlsx.write(res);
+  res.end();
+});
+
+//ADMIN/EXPENSES/EXPORT/PDF
+const PDFDocument = require('pdfkit');
+
+app.get('/admin/expenses/export/pdf', isAuthenticated, isAdmin, async (req, res) => {
+  const { month } = req.query;
+
+  // Fetch expenses
+  const result = await pool.query(
+    `
+    SELECT title, category, amount, expense_date
+    FROM expenses
+    WHERE TO_CHAR(expense_date, 'YYYY-MM') = $1
+    ORDER BY expense_date ASC
+    `,
+    [month]
+  );
+
+  // Calculate category totals
+  const categoryTotals = {};
+  result.rows.forEach(exp => {
+    if (!categoryTotals[exp.category]) categoryTotals[exp.category] = 0;
+    categoryTotals[exp.category] += Number(exp.amount);
+  });
+
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=expenses-${month}.pdf`
+  );
+  res.setHeader('Content-Type', 'application/pdf');
+
+  doc.pipe(res);
+
+  /* ================= HEADER ================= */
+  doc
+    .fontSize(20)
+    .font('Helvetica-Bold')
+    .text('Monthly Expense Report', { align: 'center' });
+
+  doc
+    .moveDown(0.5)
+    .fontSize(11)
+    .font('Helvetica')
+    .fillColor('gray')
+    .text(`Month: ${month} | Generated: ${new Date().toLocaleDateString()}`, {
+      align: 'center'
+    });
+
+  doc.moveDown(1.5);
+  doc.fillColor('black');
+
+  /* ================= TABLE HEADER ================= */
+  const startX = doc.x;
+  let y = doc.y;
+
+  const col = {
+    date: startX,
+    title: startX + 80,
+    category: startX + 280,
+    amount: startX + 390
+  };
+
+  doc.font('Helvetica-Bold').fontSize(11);
+  doc.text('Date', col.date, y);
+  doc.text('Title', col.title, y);
+  doc.text('Category', col.category, y);
+  doc.text('Amount (KES)', col.amount, y, { align: 'right' });
+
+  y += 18;
+  doc.moveTo(startX, y).lineTo(550, y).stroke();
+  y += 10;
+
+  /* ================= TABLE ROWS ================= */
+  doc.font('Helvetica').fontSize(10);
+
+  let total = 0;
+
+  for (const exp of result.rows) {
+    if (y > 750) {
+      doc.addPage();
+      y = 50;
+    }
+
+    total += Number(exp.amount);
+
+    doc.text(exp.expense_date.toISOString().split('T')[0], col.date, y);
+    doc.text(exp.title, col.title, y, { width: 180 });
+    doc.text(exp.category, col.category, y);
+    doc.text(Number(exp.amount).toLocaleString(), col.amount, y, { align: 'right' });
+
+    y += 18;
+  }
+
+  /* ================= CATEGORY TOTALS ================= */
+  y += 15;
+  doc.font('Helvetica-Bold').fontSize(12).text('Category Totals:', startX, y);
+  y += 18;
+
+  doc.font('Helvetica').fontSize(11);
+  for (const [category, amount] of Object.entries(categoryTotals)) {
+    doc.text(`${category}: KES ${amount.toLocaleString()}`, startX + 10, y);
+    y += 16;
+  }
+
+  /* ================= GRAND TOTAL ================= */
+  y += 10;
+  doc.moveTo(startX, y).lineTo(550, y).stroke();
+  y += 10;
+  doc.font('Helvetica-Bold').fontSize(12);
+  doc.text(`Total: KES ${total.toLocaleString()}`, col.amount, y, { align: 'right' });
+
+  doc.end();
+});
+
+
+// POST TO DO ROUTE
+app.post('/admin/todos', isAuthenticated, async (req, res) => {
+  const { title, description, priority, due_date } = req.body;
+
+  await pool.query(
+    `INSERT INTO todos (title, description, priority, due_date)
+     VALUES ($1, $2, $3, $4)`,
+    [title, description, priority, due_date]
+  );
+
+  res.redirect('/admin/todos');
+});
+
+// MARK COMPLETE  TO DO ROUTE
+
+app.post('/admin/todos/:id/complete', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    const result = await pool.query(
+      'SELECT started_at, total_time_seconds FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    const task = result.rows[0];
+
+    let additionalSeconds = 0;
+
+    if (task.started_at) {
+      const startedAt = new Date(task.started_at);
+      const now = new Date();
+      additionalSeconds = Math.floor((now - startedAt) / 1000);
+    }
+
+    await pool.query(
+      `UPDATE todos
+       SET completed = TRUE,
+           completed_at = NOW(),
+           total_time_seconds = total_time_seconds + $1,
+           started_at = NULL
+       WHERE id = $2`,
+      [additionalSeconds, taskId]
+    );
+
+    res.redirect('/admin/todos');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+// TO DO DELETE ROUTE
+app.post('/admin/todos/:id/delete', isAuthenticated, async (req, res) => {
+  try {
+    // Ensure only admin can delete
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    await pool.query(
+      'DELETE FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    res.redirect('/admin/todos');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// ROUTE TO SAVE EDITED TASK
+app.post('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+    const { title, description, priority, due_date } = req.body;
+
+    await pool.query(
+      `UPDATE todos
+       SET title = $1, description = $2, priority = $3, due_date = $4
+       WHERE id = $5`,
+      [title, description, priority, due_date || null, taskId]
+    );
+
+    res.redirect('/admin/todos');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+//  START POST ROUTE
+app.post('/admin/todos/:id/start', isAuthenticated, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    await pool.query(
+      'UPDATE todos SET started_at = NOW() WHERE id = $1',
+      [taskId]
+    );
+
+    res.redirect('/admin/todos');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// STOP POST ROUTE
+app.post('/admin/todos/:id/stop', isAuthenticated, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    const result = await pool.query(
+      'SELECT started_at, total_time_seconds FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    const task = result.rows[0];
+
+    if (!task.started_at) {
+      return res.redirect('/admin/todos');
+    }
+
+    const startedAt = new Date(task.started_at);
+    const now = new Date();
+
+    const secondsSpent = Math.floor((now - startedAt) / 1000);
+
+    await pool.query(
+      `UPDATE todos
+       SET total_time_seconds = total_time_seconds + $1,
+           started_at = NULL
+       WHERE id = $2`,
+      [secondsSpent, taskId]
+    );
+
+    res.redirect('/admin/todos');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+/* 🔹 Step 3: Stripe Checkout (Dynamic Amount) */
+/*app.post('/pay/card', isAuthenticated, async (req, res) => {
+  const { course_id, course_name, amount } = req.body;
+  const userId = req.user.id; // from Passport
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: req.user.email,
+
+      metadata: {
+        user_id: userId.toString(),
+        course_id: course_id.toString()
+      },
+
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: { name: course_name },
+            unit_amount: parseInt(amount) * 100,
+          },
+          quantity: 1,
+        },
+      ],
+
+      success_url:
+        process.env.STRIPE_SUCCESS_URL +
+        '?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: process.env.STRIPE_CANCEL_URL,
+    });
+
+    res.redirect(session.url);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Payment failed');
+  }
+});
+
+*/
+
+/* 🔹 Payment Success & Cancel Pages */
+
+/*
+app.get('/payment-success', isAuthenticated, (req, res) => {
+  res.send(`
+    <h2>Payment Successful 🎉</h2>
+    <p>You are now enrolled.</p>
+    <a href="/my-courses">My Courses</a>
+  `);
+});
+
+app.get('/payment-cancel', isAuthenticated, (req, res) => {
+  res.send(`
+    <h2>Payment Cancelled</h2>
+    <a href="/courses">Try again</a>
+  `);
+});
+
+*/
+
+//  SUBMIT-PAYMENT ROUTE
+app.post('/submit-payment', isAuthenticated, async (req, res) => {
+  const { course_id, transaction_code, phone_number } = req.body;
+
+  const user_id = req.session.user_id;
+  
+  // Validate transaction code
+  const mpesaRegex = /^[A-Z0-9]{10}$/;
+
+  // Validate Kenyan phone
+  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;
+
+  if (!mpesaRegex.test(transaction_code)) {
+    return res.status(400).send("Invalid M-Pesa transaction code format.");
+  }
+
+  if (!phoneRegex.test(phone_number)) {
+    return res.status(400).send("Invalid Kenyan phone number.");
+  }
+
+ 
+  try {
+    await pool.query(
+      `INSERT INTO enrollments 
+       (user_id, course_id, transaction_code, phone_number, status)
+       VALUES ($1, $2, $3, $4, 'pending')
+       ON CONFLICT (user_id, course_id)
+       DO UPDATE SET
+         transaction_code = EXCLUDED.transaction_code,
+         phone_number = EXCLUDED.phone_number,
+         status = 'pending',
+         confirmed_by_admin = false`,
+      [user_id, course_id, transaction_code, phone_number]
+    );
+
+    res.send(`
+      <h3>✅ Payment Submitted</h3>
+      <p>Your enrollment is pending confirmation.</p>
+      <p>You will gain access once admin verifies your payment.</p>
+       <a href="/courses">Browse Courses</a>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error submitting payment');
+  }
+});
+//SALES TRACKING
+app.get(
+  '/admin/sales',
+  isAuthenticated,
+  isAdmin,
+  async (req, res) => {
+    try {
+      /* 🔹 Total Sales */
+      const totalSalesResult = await pool.query(`
+        SELECT
+          COALESCE(SUM(amount), 0) AS total
+        FROM payments
+        WHERE status = 'paid'
+      `);
+
+      const totalSales = (totalSalesResult.rows[0].total / 100).toFixed(2);
+
+      /* 🔹 Sales Per Course */
+      const perCourseResult = await pool.query(`
+        SELECT
+          c.id,
+          c.name,
+          COUNT(p.id) AS sales_count,
+          COALESCE(SUM(p.amount), 0) AS total_amount
+        FROM courses c
+        LEFT JOIN payments p
+          ON p.course_id = c.id
+          AND p.status = 'paid'
+        GROUP BY c.id
+        ORDER BY total_amount DESC
+      `);
+
+      const rows = perCourseResult.rows.map(course => `
+        <tr>
+          <td>${course.id}</td>
+          <td>${course.name}</td>
+          <td>${course.sales_count}</td>
+          <td>$${(course.total_amount / 100).toFixed(2)}</td>
+        </tr>
+      `).join('');
+
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Sales Dashboard</title>
+          <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet">
+        </head>
+        <body class="container mt-4">
+
+          <h2 class="mb-3">📊 Sales Dashboard</h2>
+
+          <div class="alert alert-success">
+            <strong>Total Revenue:</strong> $${totalSales}
+          </div>
+
+          <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+              <tr>
+                <th>Course ID</th>
+                <th>Course Name</th>
+                <th>Sales</th>
+                <th>Total Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <a href="/admin" class="btn btn-secondary mt-3">← Back to Admin</a>
+
+        </body>
+        </html>
+      `);
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('Failed to load sales data');
+    }
+  }
+);
+
+// Handling All login types
+async function updateLastLogin(userId) {
+  try {
+    await pool.query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [userId]
+    );
+  } catch (err) {
+    console.error('Failed to update last_login:', err);
+  }
+}
+
+
+/* 🔹 Routes */
+app.get('/', (req, res) => res.redirect('/login'));
+
+app.get('/login', (req, res) =>
+  res.sendFile(path.join(__dirname, 'pages', 'login.html'))
+);
+
+
+app.get('/register', (req, res) =>
+  res.sendFile(path.join(__dirname, 'pages', 'register.html'))
+);
+
+/* 🔹 Google Auth */
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  async (req, res) => {
+
+    // ✅ Update last_login for Google login
+    await updateLastLogin(req.user.id);
+
+    res.redirect('/home');
+  }
+);
+
+
+/* 🔹 Register */
+app.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
+
+  const existing = await pool.query(
+    'SELECT * FROM users WHERE email = $1',
+    [email]
+  );
+  if (existing.rows.length > 0) return res.send('Email already registered');
+
+  const hashed = await bcrypt.hash(password, 10);
+  await pool.query(
+    'INSERT INTO users (username, email, password) VALUES ($1, $2, $3)',
+    [username, email, hashed]
+  );
+
+  res.redirect('/login');
+});
+
+/* 🔹 Login */
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  const result = await pool.query(
+    'SELECT * FROM users WHERE username = $1',
+    [username]
+  );
+  if (result.rows.length === 0) return res.send('User not found');
+
+  const user = result.rows[0];
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) return res.send('Incorrect password');
+
+  req.login(user, async err => {
+    if (err) return res.send('Login error');
+
+    // ✅ Update AFTER successful login
+    await updateLastLogin(user.id);
+
+    res.redirect('/home');
+  });
+});
+
+/* 🔹 Forgot Password */
+async function sendResetEmail(email, link) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"My Website" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: 'Reset Your Password',
+    html: `
+      <p>You requested a password reset.</p>
+      <p><a href="${link}">Click here</a></p>
+      <p>This link expires in 15 minutes.</p>
+    `,
+  });
+}
+
+app.get('/forgot-password', (req, res) =>
+  res.sendFile(path.join(__dirname, 'pages', 'forgot-password.html'))
+);
+
+app.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  const result = await pool.query(
+    'SELECT id FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (result.rows.length === 0)
+    return res.send('If the email exists, a reset link has been sent.');
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(token)
+    .digest('hex');
+  const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+  await pool.query(
+    `UPDATE users
+     SET reset_token = $1, reset_token_expiry = $2
+     WHERE email = $3`,
+    [hashedToken, expiry, email]
+  );
+
+  const resetLink = `http://localhost:${PORT}/reset-password/${token}`;
+  await sendResetEmail(email, resetLink);
+
+  res.send('If the email exists, a reset link has been sent.');
+});
+
+app.get('/reset-password/:token', (req, res) =>
+  res.sendFile(path.join(__dirname, 'pages', 'reset-password.html'))
+);
+
+app.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password, confirm } = req.body;
+
+  if (password !== confirm) return res.send('Passwords do not match.');
+
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const result = await pool.query(
+    `SELECT id FROM users
+     WHERE reset_token = $1 AND reset_token_expiry > NOW()`,
+    [hashedToken]
+  );
+
+  if (result.rows.length === 0) return res.send('Invalid or expired token.');
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await pool.query(
+    `UPDATE users
+     SET password = $1, reset_token = NULL, reset_token_expiry = NULL
+     WHERE id = $2`,
+    [hashedPassword, result.rows[0].id]
+  );
+
+  res.send('Password reset successful.');
+});
+
+/* 🔹 Protected Pages */
+[
+  //'home',
+  //'hobbies',
+  //'certifications',
+  'contact',
+  //'course',
+  //'skill',
+  //'books',
+  //'work',
+].forEach(page => {
+  app.get(`/${page}`, isAuthenticated, (req, res) =>
+    res.sendFile(path.join(__dirname, 'pages', `${page}.html`))
+  );
+});
+
+//DYNAMIC HOME PAGE
+
+app.get('/home', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM home_content ORDER BY created_at ASC'
+  );
+
+  const profile = result.rows.find(r => r.section === 'profile');
+  const bio = result.rows.find(r => r.section === 'bio');
+  const marquee = result.rows.find(r => r.section === 'marquee');
+  const slides = result.rows.filter(r => r.section === 'slideshow');
+
+  const slideshowHtml = slides.map((img, i) => `
+    <img src="${img.file_path}" style="animation-delay:${i * 3}s">
+  `).join('');
+
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+
+  <style>
+    .slideshow {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      max-height: 500px;
+      overflow: hidden;
+      border-radius: 10px;
+      border: 2px solid #333;
+    }
+
+    .slideshow img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      animation: fade 6s infinite;
+    }
+
+    @keyframes fade {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .scrolling-text-container {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      background: #f1f1f1;
+      border-top: 1px solid #ccc;
+    }
+
+    .scrolling-text {
+      display: inline-block;
+      padding-left: 100%;
+      animation: scroll-left 15s linear infinite;
+      font-weight: bold;
+    }
+
+    @keyframes scroll-left {
+      from { transform: translateX(0); }
+      to { transform: translateX(-100%); }
+    }
+  </style>
+</head>
+
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="page-wrapper">
+
+  <div class="scrolling-text-container">
+    <div class="scrolling-text">
+      ${marquee?.content || ''}
+    </div>
+  </div>
+
+  <div class="container mt-5">
+    <div class="row align-items-center">
+
+      <div class="col-lg-4 col-md-5 col-sm-12 mb-4">
+        <div class="slideshow">
+          ${slideshowHtml || '<img src="/images/default.jpg">'}
+        </div>
+      </div>
+
+      <div class="col-lg-8 col-md-7 col-sm-12">
+        <h1>${profile?.title || ''}</h1>
+        <p><em><strong>${profile?.content || ''}</strong></em></p>
+        <p>${bio?.content || ''}</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+`);
+});
+
+// DYNAMIC HOBBIES PAGE
+app.get('/hobbies', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM profile_items WHERE type = 'hobby' ORDER BY created_at DESC"
+  );
+
+  const pageTitle = 'My Hobbies';
+
+  const html = result.rows.map(item => {
+    // Use file_path first (new uploads), fallback to image_url (old)
+    const fileUrl =
+      item.file_path && item.file_path.trim()
+        ? item.file_path.trim()
+        : (item.image_url && item.image_url.trim() ? item.image_url.trim() : null);
+
+    const isPdf = fileUrl && fileUrl.toLowerCase().endsWith('.pdf');
+
+    return `
+      <div class="col-md-4 col-sm-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+
+          <!-- Title -->
+          <div class="card-header bg-white text-center fw-semibold">
+            ${item.title}
+          </div>
+
+          <!-- File Preview -->
+          <div class="card-body text-center">
+            ${
+              isPdf
+                ? `
+                  <embed src="${fileUrl}" type="application/pdf" width="100%" height="220px" />
+                  <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    View / Download PDF
+                  </a>
+                `
+                : `
+                  <img
+                    src="${fileUrl || '/images/default-item.jpg'}"
+                    class="img-fluid rounded"
+                    style="object-fit:cover; height:220px; width:100%;"
+                    alt="${item.title}"
+                  />
+                `
+            }
+
+            <!-- Description -->
+            <p class="card-text text-muted mt-3">
+              ${item.description || ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>${pageTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Shared + Page CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/hobbies.css">
+  </head>
+  <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+
+    <div class="container py-5">
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <div class="row">
+        ${html || '<p class="text-muted text-center">No hobbies yet.</p>'}
+      </div>
+    </div>
+</div>    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+  </html>
+  `);
+});
+
+
+
+// DYNAMIC BOOKS PAGE
+app.get('/books', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM profile_items WHERE type = 'book' ORDER BY created_at DESC"
+  );
+
+  const pageTitle = 'My Books';
+
+  const html = result.rows.map(item => {
+    // Use file_path first (new uploads), fallback to image_url (old)
+    const fileUrl =
+      item.file_path && item.file_path.trim()
+        ? item.file_path.trim()
+        : (item.image_url && item.image_url.trim() ? item.image_url.trim() : null);
+
+    const isPdf = fileUrl && fileUrl.toLowerCase().endsWith('.pdf');
+
+    return `
+      <div class="col-md-4 col-sm-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+
+          <!-- Title -->
+          <div class="card-header bg-white text-center fw-semibold">
+            ${item.title}
+          </div>
+
+          <!-- File Preview -->
+          <div class="card-body text-center">
+            ${
+              isPdf
+                ? `
+                  <embed src="${fileUrl}" type="application/pdf" width="100%" height="220px" />
+                  <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    View / Download PDF
+                  </a>
+                `
+                : `
+                  <img
+                    src="${fileUrl || '/images/default-item.jpg'}"
+                    class="img-fluid rounded"
+                    style="object-fit:cover; height:220px; width:100%;"
+                    alt="${item.title}"
+                  />
+                `
+            }
+
+            <!-- Description -->
+            <p class="card-text text-muted mt-3">
+              ${item.description || ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>${pageTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Shared + Page CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/books.css">
+  </head>
+  <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+
+    <div class="container py-5">
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <div class="row">
+        ${html || '<p class="text-muted text-center">No books yet.</p>'}
+      </div>
+    </div>
+ </div>    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+  </html>
+  `);
+});
+
+
+
+// DYNAMIC  SKILLS PAGE
+app.get('/skills', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM profile_items WHERE type = 'skill' ORDER BY created_at DESC"
+  );
+
+  const pageTitle = 'My Skills';
+
+  const html = result.rows.map(item => {
+    // Use file_path first (new uploads), fallback to image_url (old)
+    const fileUrl =
+      item.file_path && item.file_path.trim()
+        ? item.file_path.trim()
+        : (item.image_url && item.image_url.trim() ? item.image_url.trim() : null);
+
+    const isPdf = fileUrl && fileUrl.toLowerCase().endsWith('.pdf');
+    const rating = item.rating || 0;
+    const width = rating * 20; // Each star = 20%
+
+    // Choose progress bar color
+    let colorClass = 'progress-red';
+    if (rating === 2) colorClass = 'progress-orange';
+    else if (rating === 3) colorClass = 'progress-yellow';
+    else if (rating === 4) colorClass = 'progress-lime';
+    else if (rating === 5) colorClass = 'progress-green';
+
+    return `
+      <div class="col-md-4 col-sm-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+
+          <!-- Title -->
+          <div class="card-header bg-white text-center fw-semibold">
+            ${item.title}
+          </div>
+
+          <!-- File Preview -->
+          <div class="card-body text-center">
+            ${
+              isPdf
+                ? `
+                  <embed src="${fileUrl}" type="application/pdf" width="100%" height="220px" />
+                  <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    View / Download PDF
+                  </a>
+                `
+                : `
+                  <img
+                    src="${fileUrl || '/images/default-item.jpg'}"
+                    class="img-fluid rounded"
+                    style="object-fit:cover; height:220px; width:100%;"
+                    alt="${item.title}"
+                  />
+                `
+            }
+
+            <!-- Description -->
+            <p class="card-text text-muted mt-3">
+              ${item.description || ''}
+            </p>
+
+            <!-- Skill Progress Bar -->
+            <div class="progress mt-2" style="height: 20px; border-radius:8px;">
+              <div class="progress-bar ${colorClass}" style="width:${width}%; line-height:20px;">
+                ${rating} / 5
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>${pageTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Shared + Page CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/skills.css">
+
+    <style>
+      /* Progress bar colors */
+      .progress-red { background-color: #dc3545; }       /* 1 star */
+      .progress-orange { background-color: #fd7e14; }    /* 2 stars */
+      .progress-yellow { background-color: #ffc107; color:#000; }  /* 3 stars */
+      .progress-lime { background-color: #8bc34a; }      /* 4 stars */
+      .progress-green { background-color: #28a745; }     /* 5 stars */
+    </style>
+  </head>
+  <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+    <div class="container py-5">
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <div class="row">
+        ${html || '<p class="text-muted text-center">No skills yet.</p>'}
+      </div>
+    </div>
+</div>    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+  </html>
+  `);
+});
+
+// DYNAMIC WORK PAGE
+app.get('/work', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM profile_items WHERE type = 'work' ORDER BY created_at DESC"
+  );
+
+  const pageTitle = 'My Work Experience';
+
+  const html = result.rows.map(item => {
+    // Use file_path first (new uploads), fallback to image_url (old)
+    const fileUrl =
+      item.file_path && item.file_path.trim()
+        ? item.file_path.trim()
+        : (item.image_url && item.image_url.trim() ? item.image_url.trim() : null);
+
+    const isPdf = fileUrl && fileUrl.toLowerCase().endsWith('.pdf');
+
+    return `
+      <div class="col-md-4 col-sm-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+
+          <!-- Title -->
+          <div class="card-header bg-white text-center fw-semibold">
+            ${item.title}
+          </div>
+
+          <!-- File Preview -->
+          <div class="card-body text-center">
+            ${
+              isPdf
+                ? `
+                  <embed src="${fileUrl}" type="application/pdf" width="100%" height="220px" />
+                  <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    View / Download PDF
+                  </a>
+                `
+                : `
+                  <img
+                    src="${fileUrl || '/images/default-item.jpg'}"
+                    class="img-fluid rounded"
+                    style="object-fit:cover; height:220px; width:100%;"
+                    alt="${item.title}"
+                  />
+                `
+            }
+
+            <!-- Description -->
+            <p class="card-text text-muted mt-3">
+              ${item.description || ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>${pageTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Shared + Page CSS -->
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/work.css">
+  </head>
+  <body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+
+    <div class="container py-5">
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <div class="row">
+        ${html || '<p class="text-muted text-center">No work experience yet.</p>'}
+      </div>
+    </div>
+</div>    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+  </html>
+  `);
+});
+
+// DYNAMIC CERTIFICATION PAGE
+app.get('/certifications', isAuthenticated, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM profile_items WHERE type = 'certification' ORDER BY created_at DESC"
+  );
+
+  const pageTitle = 'My Certifications';
+
+  const html = result.rows.map(item => {
+    // Use file_path first, fallback to old image_url
+    const fileUrl = (item.file_path && item.file_path.trim())
+      ? item.file_path.trim()
+      : (item.image_url && item.image_url.trim() ? item.image_url.trim() : null);
+
+    const isPdf = fileUrl && fileUrl.toLowerCase().endsWith('.pdf');
+
+    return `
+      <div class="col-md-4 col-sm-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+
+          <!-- Title -->
+          <div class="card-header bg-white text-center fw-semibold">
+            ${item.title}
+          </div>
+
+          <!-- File Preview -->
+          <div class="card-body text-center">
+            ${
+              isPdf
+                ? `
+                  <embed
+                    src="${fileUrl}"
+                    type="application/pdf"
+                    width="100%"
+                    height="220px"
+                  />
+                  <a href="${fileUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    View
+                  </a>
+                `
+                : `
+                  <img
+                    src="${fileUrl || '/images/default-item.jpg'}"
+                    class="img-fluid rounded"
+                    style="object-fit:cover; height:220px; width:100%;"
+                    alt="${item.title}"
+                  />
+                `
+            }
+
+            <!-- Description -->
+            <p class="card-text text-muted mt-3">
+              ${item.description || ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>${pageTitle}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+
+      <!-- Bootstrap -->
+      <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+      />
+
+      <!-- Shared + Page CSS -->
+      <link rel="stylesheet" href="/css/styles.css">
+    </head>
+    <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+
+      <div class="container py-5">
+        <h2 class="mb-5 text-center fw-bold">
+          ${pageTitle.toUpperCase()}
+        </h2>
+
+        <div class="row">
+          ${html || '<p class="text-muted text-center">No certifications yet.</p>'}
+        </div>
+      </div>
+</div>      
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+/* 🔹 Dynamic Courses Page (Fully Responsive) */
+app.get('/courses', isAuthenticated, async (req, res) => {
+  try {
+   const result = await pool.query(`
+  SELECT
+    c.id,
+    c.name,
+    c.description,
+    c.price,
+    c.image_url,
+    cat.name AS category
+  FROM courses c
+  JOIN categories cat ON cat.id = c.category_id
+  ORDER BY cat.name, c.name
+`);
+
+// GROUP BY CATEGORY
+const grouped = {};
+
+result.rows.forEach(course => {
+  if (!grouped[course.category]) {
+    grouped[course.category] = [];
+  }
+  grouped[course.category].push(course);
+});
+
+// BUILD HTML
+let content = '';
+
+for (const category in grouped) {
+  const cards = grouped[category].map(course => `
+    <div class="col-12 col-md-6 col-lg-4 mb-4">
+      <div class="card h-100 shadow-sm">
+        <img 
+  src="${course.image_url?.trim() || '/images/default-course.jpg'}"
+  class="card-img-top img-fluid"
+  alt="${course.name}"
+>
+
+        <div class="card-body d-flex flex-column">
+          <h5>${course.name}</h5>
+          <p>${course.description}</p>
+ <a href="/payment?course_id=${course.id}" class="btn btn-success mt-auto">
+  Enroll
+</a>
+
+
+           
+          </a>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  content += `
+    <h3 class="mt-5 mb-3 text-primary text-center">${category}</h3>
+    <div class="row">
+      ${cards}
+    </div>
+  `;
+}
+
+   
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Courses</title>
+        <link rel="stylesheet" href="/css/styles.css">
+        <link rel="stylesheet" href="/css/courses.css">
+        <link rel="icon" href="F.jpg">
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        >
+      </head>
+      <body>
+      <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+<div class="page-wrapper">
+    
+        <hr>
+        <h3 class="page-title text-center mb-4">Courses</h3>
+
+        <section class="container">
+          <div class="row">
+           ${content}
+
+          </div>
+        </section>
+        
+
+        <hr>
+</div>        
+        
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+/* 🔹 My Courses Page */
+app.get('/my-courses', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await pool.query(
+      `
+      SELECT
+        c.id,
+        c.name,
+        c.description,
+        c.image_url,
+        c.price,
+        e.enrolled_at
+      FROM enrollments e
+      JOIN courses c ON c.id = e.course_id
+      WHERE e.user_id = $1
+      ORDER BY e.enrolled_at DESC
+      `,
+      [userId]
+    );
+
+    const courses = result.rows;
+
+    if (courses.length === 0) {
+      return res.send(`
+        <h2>You are not enrolled in any courses yet.</h2>
+        <a href="/courses">Browse Courses</a>
+      `);
+    }
+
+    const courseCards = courses.map(course => `
+      <div class="col-12 col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm">
+         <img 
+  src="${course.image_url?.trim() || '/images/default-course.jpg'}"
+  class="card-img-top"
+  alt="${course.name}">
+
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">${course.name}</h5>
+            <p class="card-text">${course.description}</p>
+            <a href="/course/${course.id}" class="btn btn-primary mt-auto">
+              ▶ Access Course
+            </a>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Courses</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap CSS -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+
+<!-- ✅ Page Content -->
+<div class="page-wrapper">
+
+  <div class="container my-5">
+
+    <h2 class="text-center mb-4">🎓 My Courses</h2>
+
+    <div class="row g-4">
+      ${courseCards}
+    </div>
+
+    <div class="text-center mt-5">
+      <a href="/courses" class="btn btn-outline-primary">
+        ➕ Enroll in more courses
+      </a>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>
+`);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// TOdO DYNAMIC PAGE
+app.get('/admin/todos', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM todos ORDER BY created_at DESC'
+    );
+
+    const pageTitle = 'Admin Task Manager';
+
+    const html = result.rows.map(task => {
+      const totalSeconds = task.total_time_seconds || 0;
+
+const hours = Math.floor(totalSeconds / 3600);
+const minutes = Math.floor((totalSeconds % 3600) / 60);
+const seconds = totalSeconds % 60;
+
+      const isOverdue =
+        task.due_date &&
+        !task.completed &&
+        new Date(task.due_date) < new Date();
+
+      return `
+        <div class="col-md-4 col-sm-6 mb-4">
+       <div class="card h-100 shadow-sm border-0 ${isOverdue ? 'border-danger' : ''}">
+
+            <div class="card-header bg-white text-center fw-semibold">
+              ${task.title}
+               ${isOverdue ? '<span class="badge bg-danger ms-2">Overdue!</span>' : ''}
+            </div>
+
+            <div class="card-body text-center">
+
+              <p class="text-muted">
+                ${task.description || ''}
+              </p>
+
+              <p>
+                <strong>Priority:</strong>
+                <span class="badge bg-${
+                  task.priority === 'high'
+                    ? 'danger'
+                    : task.priority === 'medium'
+                    ? 'warning'
+                    : 'secondary'
+                }">
+                  ${task.priority}
+                </span>
+              </p>
+
+              <p class="${isOverdue ? 'text-danger fw-bold' : ''}">
+                <strong>Due:</strong>
+                ${
+                  task.due_date
+                    ? new Date(task.due_date).toLocaleString()
+                    : 'No deadline'
+                }
+              </p>
+              <p>
+  <strong>Time Spent:</strong>
+  ${hours}h ${minutes}m ${seconds}s
+</p>
+
+</a>
+       ${
+  !task.completed
+    ? `
+      ${
+        task.started_at
+          ? `
+            <form class="d-inline" action="/admin/todos/${task.id}/stop" method="POST">
+              <button class="btn btn-sm btn-warning">
+                Stop Timer
+              </button>
+            </form>
+          `
+          : `
+            <form class="d-inline" action="/admin/todos/${task.id}/start" method="POST">
+              <button class="btn btn-sm btn-primary">
+                Start Timer
+              </button>
+            </form>
+          `
+      }
+
+      <form class="d-inline" action="/admin/todos/${task.id}/complete" method="POST">
+        <button class="btn btn-sm btn-success">
+          Mark Done
+        </button>
+      </form>
+
+      <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+        <button class="btn btn-sm btn-info">
+          Edit
+        </button>
+      </form>
+
+      <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+        <button class="btn btn-sm btn-danger"
+          onclick="return confirm('Are you sure you want to delete this task?')">
+          Delete
+        </button>
+      </form>
+    `
+    : `
+      <span class="badge bg-success">Completed</span>
+
+      <form class="d-inline" action="/admin/todos/${task.id}/edit" method="GET">
+        <button class="btn btn-sm btn-info mt-1">
+          Edit
+        </button>
+      </form>
+
+      <form class="d-inline" action="/admin/todos/${task.id}/delete" method="POST">
+        <button class="btn btn-sm btn-danger mt-2"
+          onclick="return confirm('Are you sure you want to delete this task?')">
+          Delete
+        </button>
+      </form>
+    `
+}
+
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>${pageTitle}</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+
+      <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+      />
+
+      <link rel="stylesheet" href="/css/styles.css">
+    </head>
+    <body>
+
+ <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+             ${adminLink(req)}
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+
+    <div class="container py-5">
+
+      <h2 class="mb-5 text-center fw-bold">
+        ${pageTitle.toUpperCase()}
+      </h2>
+
+      <!-- ADD TASK FORM -->
+      <div class="card mb-5 shadow-sm">
+        <div class="card-body">
+          <form action="/admin/todos" method="POST">
+            <div class="row g-3">
+
+              <div class="col-md-4">
+                <input type="text" name="title" class="form-control"
+                  placeholder="Task title" required>
+              </div>
+
+              <div class="col-md-3">
+                <select name="priority" class="form-select">
+                  <option value="high">High</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <input type="datetime-local"
+                  name="due_date"
+                  class="form-control">
+              </div>
+
+              <div class="col-md-2">
+                <button class="btn btn-primary w-100">
+                  Add Task
+                </button>
+              </div>
+
+              <div class="col-12">
+                <textarea name="description"
+                  class="form-control"
+                  placeholder="Description (optional)">
+                </textarea>
+              </div>
+
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="row">
+        ${
+          html || `
+            <p class="text-muted text-center">
+              No tasks yet.
+            </p>
+          `
+        }
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    </body>
+    </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// EDIT TODO ROUTE
+app.get('/admin/todos/:id/edit', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+    const taskId = req.params.id;
+
+    const result = await pool.query(
+      'SELECT * FROM todos WHERE id = $1',
+      [taskId]
+    );
+
+    const task = result.rows[0];
+
+    if (!task) {
+      return res.status(404).send('Task not found');
+    }
+
+    // Render dynamic edit page
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Edit Task</title>
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <div class="container py-5">
+          <h2 class="mb-4 text-center">Edit Task</h2>
+
+          <form action="/admin/todos/${task.id}/edit" method="POST">
+            <div class="mb-3">
+              <label class="form-label">Title</label>
+              <input type="text" name="title" class="form-control" value="${task.title}" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control">${task.description || ''}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Priority</label>
+              <select name="priority" class="form-select">
+                <option value="high" ${task.priority === 'high' ? 'selected' : ''}>High</option>
+                <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Low</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Due Date</label>
+              <input type="datetime-local" name="due_date" class="form-control"
+                value="${task.due_date ? new Date(task.due_date).toISOString().slice(0,16) : ''}">
+            </div>
+
+            <button class="btn btn-primary">Save Changes</button>
+            <a href="/admin/todos" class="btn btn-secondary ms-2">Cancel</a>
+          </form>
+        </div>
+      </body>
+      </html>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+/* 🔹 Logout */
+
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/login'));
+});
+
+/* 🔹 Start server */
+
+console.log("DB MODE:", process.env.DATABASE_URL ? "Render DB" : "Local DB");
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
+

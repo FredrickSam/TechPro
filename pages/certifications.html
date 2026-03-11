@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Certifications - Fredrick</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="F.jpg" />
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Navbar */
+    .nav-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      background-color: #2c3e50;
+    }
+
+    .nav-bar a {
+      color: #fff9c4;
+      text-decoration: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      background-color: #34495e;
+      transition: background-color 0.3s;
+      text-align: center;
+    }
+
+    .nav-bar a:hover {
+      background-color: #ff7043;
+      color: white;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 30px 0 20px;
+    }
+
+    /* Certificates container */
+    .pdf-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto 40px;
+    }
+
+    .pdf-container iframe {
+      flex: 1 1 300px; /* Grow, shrink, min-width 300px */
+      min-width: 300px;
+      max-width: 100%;
+      height: 60vh;
+      border: 2px solid #333;
+      border-radius: 10px;
+    }
+
+    /* Bottom container */
+    .bottom-container {
+      background-color: azure;
+      width: 100%;
+      padding: 20px;
+      text-align: center;
+      font-weight: bold;
+      margin-top: 30px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.6rem;
+        margin: 20px 0;
+      }
+
+      .pdf-container iframe {
+        height: 50vh;
+      }
+
+      .nav-bar {
+        gap: 5px;
+        padding: 10px;
+      }
+
+      .nav-bar a {
+        padding: 8px 10px;
+        font-size: 0.9rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .pdf-container iframe {
+        height: 40vh;
+      }
+
+      .nav-bar a {
+        padding: 6px 8px;
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+
+<body oncontextmenu="return false;">
+  
+  <!-- Top Navbar -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/home"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
+        <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
+        <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
+        <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
+        <li class="nav-item"><a class="nav-link  active" href="/certifications">Certifications</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            Courses
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/courses">View Courses</a></li>
+            <li><a class="dropdown-item" href="/my-courses">My Courses</a></li>
+            <li><a class="dropdown-item" href="/admin">Admin Dashboard</a></li>
+            
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+  <h1>My Certifications</h1>
+
+  <div class="pdf-container">
+    <!-- Example iframe -->
+    <iframe src="/pdf/Fredrick Sirima Ouma.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/01 Genesis-Haffner.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Digital Marketting.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/55th Webinar The AfCFTA Opportunities for Africa on 28th May 2025-177.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/ARSO- ESSAY COMPETITON.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Basic App Development.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Basic Graphic Design.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Certificate of Achievement Bible Basics Fredrick Sirima Ouma (1).pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/CertificateOfCompletion_Career Essentials in Software Development by Microsoft and LinkedIn.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Content Writing.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Fredrick Ouma.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Hackerthon_Certificate.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Marketting.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Search Engine Optimization.pdf#toolbar=0"></iframe>
+    <iframe src="/pdf/Virtual Assistant.pdf#toolbar=0"></iframe>
+  </div>
+
+  <script>
+    document.addEventListener('contextmenu', event => event.preventDefault());
+  </script>
+
+  
+  <!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>

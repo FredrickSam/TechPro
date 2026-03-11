@@ -1,0 +1,71 @@
+/* === E-books Page Styles === */
+
+.page-title {
+  text-align: center;
+  font-size: 2rem;
+  margin: 20px 0;
+  color: #2c3e50;
+}
+
+/* Container grid */
+.ebooks-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+/* E-book card */
+.ebook-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ebook-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+/* Images */
+.ebook-img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+/* Card body */
+.card-body {
+  padding: 15px;
+  text-align: center;
+}
+
+.ebook-title {
+  font-size: 1.2rem;
+  color: #34495e;
+  margin-bottom: 8px;
+}
+
+.ebook-desc {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+/* Download button */
+.download-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  background: #3498db;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 0.3s ease;
+  font-weight: bold;
+}
+
+.download-btn:hover {
+  background: #2980b9;
+}

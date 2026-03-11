@@ -1,0 +1,56 @@
+.page-header {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.page-header h2 {
+  font-size: 2rem;
+  color: #222;
+}
+
+.page-header p {
+  color: #555;
+  font-size: 1rem;
+}
+
+.experience-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 30px;
+}
+
+.experience-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.experience-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.experience-card h3 {
+  margin-bottom: 10px;
+  font-size: 1.4rem;
+  color: #333;
+}
+
+.date {
+  font-weight: bold;
+  color: #4facfe;
+}
+
+.place {
+  font-style: italic;
+  color: #555;
+}
+
+.details {
+  margin-top: 10px;
+  line-height: 1.6;
+  color: #444;
+}
