@@ -2569,7 +2569,7 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
 app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const { course_id, transaction_code, phone_number } = req.body;
 
-  const user_id = req.session.user_id;
+  const user_id = req.user.id;
   
   // Validate transaction code
   const mpesaRegex = /^[A-Z0-9]{10}$/;
@@ -2588,7 +2588,7 @@ app.post('/submit-payment', isAuthenticated, async (req, res) => {
  
   try {
     await pool.query(
-      `INSERT INTO enrollments 
+      `INSERT INTO enrollments
        (user_id, course_id, transaction_code, phone_number, status)
        VALUES ($1, $2, $3, $4, 'pending')
        ON CONFLICT (user_id, course_id)
