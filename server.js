@@ -2569,13 +2569,13 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
 app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const { course_id, transaction_code, phone_number } = req.body;
 
-  const user_id = req.user.id;
+  const user_id = req.session.user_id;
   
   // Validate transaction code
   const mpesaRegex = /^[A-Z0-9]{10}$/;
 
   // Validate Kenyan phone
-  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;
+  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;s
 
   if (!mpesaRegex.test(transaction_code)) {
     return res.status(400).send("Invalid M-Pesa transaction code format.");
