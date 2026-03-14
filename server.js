@@ -2575,7 +2575,7 @@ app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const mpesaRegex = /^[A-Z0-9]{10}$/;
 
   // Validate Kenyan phone
-  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;s
+  const phoneRegex = /^(07\d{8}|01\d{8}|2547\d{8}|2541\d{8})$/;
 
   if (!mpesaRegex.test(transaction_code)) {
     return res.status(400).send("Invalid M-Pesa transaction code format.");
