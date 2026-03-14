@@ -275,7 +275,8 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 1000 * 60 * 30  // 30 minutes
     }
   })
 );
@@ -2569,7 +2570,7 @@ app.get('/payment-cancel', isAuthenticated, (req, res) => {
 app.post('/submit-payment', isAuthenticated, async (req, res) => {
   const { course_id, transaction_code, phone_number } = req.body;
 
-  const user_id = req.session.user_id;
+  const user_id = req.user.id;
   
   // Validate transaction code
   const mpesaRegex = /^[A-Z0-9]{10}$/;
