@@ -1371,24 +1371,24 @@ function isEnrolled() {
   return async (req, res, next) => {
     try {
       const userId = req.user.id;
-      const courseId = req.params.courseId; // or req.params.id
+      const courseId = req.params.courseId;
 
       const result = await pool.query(
-        `SELECT 1 
-         FROM enrollments 
-         WHERE user_id = $1 
-           AND course_id = $2
-           AND status = 'approved'`,
+        `SELECT 1
+         FROM enrollments
+         WHERE user_id = $1
+         AND course_id = $2
+         AND confirmed_by_admin = true`,
         [userId, courseId]
       );
 
       if (result.rows.length === 0) {
-        return res.redirect('/courses'); // or show "not enrolled" message
+        return res.redirect('/courses');
       }
 
       next();
     } catch (err) {
-      console.error('Enrollment check failed:', err);
+      console.error(err);
       res.status(500).send('Server error');
     }
   };
