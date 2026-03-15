@@ -2875,14 +2875,14 @@ app.post('/reset-password/:token', async (req, res) => {
 
 /* 🔹 Protected Pages */
 [
-  //'home',
-  //'hobbies',
-  //'certifications',
+  'home',
+  'hobbies',
+  'certifications',
   'contact',
   //'course',
-  //'skill',
-  //'books',
-  //'work',
+  'skill',
+  'books',
+  'work',
 ].forEach(page => {
   app.get(`/${page}`, isAuthenticated, (req, res) =>
     res.sendFile(path.join(__dirname, 'pages', `${page}.html`))
