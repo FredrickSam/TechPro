@@ -102,6 +102,24 @@ const uploadSlideshow = multer({
 
 // --- M-PESA ACCESS TOKEN HELPER ---
 
+async function getMpesaAccessToken() {
+  const auth = Buffer.from(
+    `${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`
+  ).toString("base64");
+
+  const url =
+    process.env.MPESA_ENV === "live"
+      ? "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+      : "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Basic ${auth}`,
+    },
+  });
+
+  return response.data.access_token;
+}
 
 // --- TEST ROUTE FOR ACCESS TOKEN ---
 
