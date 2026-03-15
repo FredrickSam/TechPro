@@ -2878,7 +2878,7 @@ app.post('/reset-password/:token', async (req, res) => {
   //'home',
   //'hobbies',
   //'certifications',
-  //'contact',
+  'contact',
   //'course',
   //'skill',
   //'books',
