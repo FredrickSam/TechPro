@@ -1203,7 +1203,51 @@ app.get('/payment', isAuthenticated, async (req, res) => {
                 Submit Payment for Confirmation
               </button>
             </form>
+<hr>
 
+<h5>🌍 Pay with PayPal</h5>
+<p>For international payments use PayPal.</p>
+
+<script src="https://www.paypal.com/sdk/js?client-id=${process.env.PAYPAL_CLIENT_ID}&currency=USD"></script>
+
+<div id="paypal-button-container"></div>
+
+<script>
+paypal.Buttons({
+
+createOrder: function(data, actions) {
+  return actions.order.create({
+    purchase_units: [{
+      amount: {
+        value: '${course.price}'
+      }
+    }]
+  });
+},
+
+onApprove: function(data, actions) {
+  return actions.order.capture().then(function(details) {
+
+    fetch('/paypal-success', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        course_id: '${course.id}',
+        order_id: data.orderID
+      })
+    })
+    .then(res => res.text())
+    .then(html => {
+      document.body.innerHTML = html;
+    });
+
+  });
+}
+
+}).render('#paypal-button-container');
+</script>
           </div>
         </div>
 
@@ -2611,6 +2655,37 @@ app.post('/submit-payment', isAuthenticated, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Error submitting payment');
+  }
+});
+
+// PAYPAL POST ROUTE
+app.post('/paypal-success', isAuthenticated, async (req, res) => {
+  const { course_id, order_id } = req.body;
+  const user_id = req.user.id;
+
+  try {
+
+    await pool.query(
+      `INSERT INTO enrollments
+       (user_id, course_id, transaction_code, phone_number, status, confirmed_by_admin)
+       VALUES ($1,$2,$3,$4,'approved',true)
+       ON CONFLICT (user_id, course_id)
+       DO UPDATE SET
+         status='approved',
+         confirmed_by_admin=true`,
+      [user_id, course_id, order_id, 'paypal']
+    );
+
+    res.send(`
+      <h3>✅ Payment Successful</h3>
+      <p>Your PayPal payment was successful.</p>
+      <p>You now have access to this course.</p>
+      <a href="/courses">Go to Courses</a>
+    `);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error processing PayPal payment');
   }
 });
 //SALES TRACKING
