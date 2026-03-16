@@ -1137,6 +1137,12 @@ app.get('/payment', isAuthenticated, async (req, res) => {
     if (result.rows.length === 0) return res.send('Course not found');
 
     const course = result.rows[0];
+    
+
+// Example exchange rate
+const exchangeRate = 130; // 1 USD = 130 KES
+
+const usdPrice = (course.price / exchangeRate).toFixed(2);
 
     res.send(`
       <!DOCTYPE html>
@@ -1158,7 +1164,8 @@ app.get('/payment', isAuthenticated, async (req, res) => {
 
             <h3>${course.name}</h3>
             <p>${course.description}</p>
-            <p><strong>Price:</strong> KES ${course.price}</p>
+           <p><strong>Price (M-Pesa):</strong> KES ${course.price}</p>
+          <p><strong>Price (PayPal):</strong> USD ${usdPrice}</p>
 
             <hr>
 
@@ -1219,7 +1226,7 @@ createOrder: function(data, actions) {
   return actions.order.create({
     purchase_units: [{
       amount: {
-        value: '${course.price}'
+      value: '${usdPrice}'
       }
     }]
   });
