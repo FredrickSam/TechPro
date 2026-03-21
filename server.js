@@ -2973,7 +2973,7 @@ app.post('/reset-password/:token', async (req, res) => {
 
 //DYNAMIC HOME PAGE
 
-app.get('/home', isAuthenticated, async (req, res) => {
+app.get('/home', async (req, res) => {
   const result = await pool.query(
     'SELECT * FROM home_content ORDER BY created_at ASC'
   );
