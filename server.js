@@ -3119,7 +3119,7 @@ app.get('/home', async (req, res) => {
 });
 
 // DYNAMIC HOBBIES PAGE
-app.get('/hobbies', isAuthenticated, async (req, res) => {
+app.get('/hobbies', async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'hobby' ORDER BY created_at DESC"
   );
@@ -3249,7 +3249,7 @@ app.get('/hobbies', isAuthenticated, async (req, res) => {
 
 
 // DYNAMIC BOOKS PAGE
-app.get('/books', isAuthenticated, async (req, res) => {
+app.get('/books', async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'book' ORDER BY created_at DESC"
   );
@@ -3379,7 +3379,7 @@ app.get('/books', isAuthenticated, async (req, res) => {
 
 
 // DYNAMIC  SKILLS PAGE
-app.get('/skills', isAuthenticated, async (req, res) => {
+app.get('/skills', async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'skill' ORDER BY created_at DESC"
   );
@@ -3531,7 +3531,7 @@ app.get('/skills', isAuthenticated, async (req, res) => {
 });
 
 // DYNAMIC WORK PAGE
-app.get('/work', isAuthenticated, async (req, res) => {
+app.get('/work', async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'work' ORDER BY created_at DESC"
   );
@@ -3659,7 +3659,7 @@ app.get('/work', isAuthenticated, async (req, res) => {
 });
 
 // DYNAMIC CERTIFICATION PAGE
-app.get('/certifications', isAuthenticated, async (req, res) => {
+app.get('/certifications', async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'certification' ORDER BY created_at DESC"
   );
