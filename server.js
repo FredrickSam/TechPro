@@ -3664,7 +3664,7 @@ app.get('/certifications', async (req, res) => {
     "SELECT * FROM profile_items WHERE type = 'certification' ORDER BY created_at DESC"
   );
 
-  const pageTitle = 'My Certifications';
+  const pageTitle = 'Certificates & Awards';
 
   const html = result.rows.map(item => {
     // Use file_path first, fallback to old image_url
