@@ -3064,7 +3064,7 @@ app.get('/home', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3208,7 +3208,7 @@ app.get('/hobbies', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3338,7 +3338,7 @@ app.get('/books', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3493,7 +3493,7 @@ app.get('/skills', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3620,7 +3620,7 @@ app.get('/work', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3751,7 +3751,7 @@ app.get('/certifications', async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -3883,7 +3883,7 @@ for (const category in grouped) {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -4012,7 +4012,7 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -4231,7 +4231,7 @@ const seconds = totalSeconds % 60;
         <li class="nav-item"><a class="nav-link" href="/books">Books & Teaching</a></li>
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
-        <li class="nav-item"><a class="nav-link" href="/certifications">Certifications</a></li>
+        <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
