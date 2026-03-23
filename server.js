@@ -2966,7 +2966,7 @@ app.post('/reset-password/:token', async (req, res) => {
   //'books',
   //'work',
 ].forEach(page => {
-  app.get(`/${page}`, isAuthenticated, (req, res) =>
+  app.get(`/${page}`, (req, res) =>
     res.sendFile(path.join(__dirname, 'pages', `${page}.html`))
   );
 });
