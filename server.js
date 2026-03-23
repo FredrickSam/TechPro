@@ -1676,7 +1676,7 @@ app.get('/admin/profile-items', isAuthenticated, isAdmin, async (req, res) => {
             <option value="book">Books</option>
             <option value="work">Work</option>
             <option value="skill">Skills</option>
-            <option value="certification">Certification</option>
+            <option value="certification">Certificates & Awards</option>
           </select>
         </div>
 
