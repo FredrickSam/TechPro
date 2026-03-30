@@ -3898,9 +3898,10 @@ for (const category in grouped) {
             
           </ul>
         </li>
-
+ <li class="nav-item"><a class="nav-link" href="/meal-plan">View Weekly Meal Plan</a></li>
+ ${adminLink(req)}
         <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
-        <li class="nav-item"><a class="nav-link" href="/meal-plan">View Weekly Meal Plan</a></li>
+       
         <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
       </ul>
     </div>
