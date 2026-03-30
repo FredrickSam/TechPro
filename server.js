@@ -400,7 +400,7 @@ const slides = await pool.query(
    <a href="/admin/pending-enrollments" class="btn btn-warning">
   🕒 Pending Enrollments
 </a>
-<a href="/admin/meal-plan.html"  class="btn btn-dark"> 📝View Weekly Meal Plan</a>
+<a href="/meal-plan.html"  class="btn btn-dark"> 📝View Weekly Meal Plan</a>
   </div>
 
   <!-- HOME EDITOR -->
