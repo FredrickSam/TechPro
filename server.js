@@ -400,7 +400,7 @@ const slides = await pool.query(
    <a href="/admin/pending-enrollments" class="btn btn-warning">
   🕒 Pending Enrollments
 </a>
-<a href="/meal-plan.html"  class="btn btn-dark"> 📝View Weekly Meal Plan</a>
+
   </div>
 
   <!-- HOME EDITOR -->
@@ -3900,6 +3900,7 @@ for (const category in grouped) {
         </li>
 
         <li class="nav-item"><a class="nav-link" href="/contact">Contact Us</a></li>
+        <li class="nav-item"><a class="nav-link" href="/meal-plan">View Weekly Meal Plan</a></li>
         <li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
       </ul>
     </div>
