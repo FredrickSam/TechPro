@@ -397,10 +397,10 @@ const slides = await pool.query(
     <a href="/admin/expenses" class="btn btn-success">Expenditure Tracker</a>
     <a href="/admin/users" class="btn btn-primary">Manage Users</a>
     <a href="/admin/todos" class="btn btn-dark">📝 Task Manager</a>
-   <a href="/admin/pending-enrollments" class="btn btn-warning">
-   <a href="/admin/meal-plan" class="btn btn-primary">MEALS</a>
-  🕒 Pending Enrollments
+   <a href="/admin/pending-enrollments" class="btn btn-warning">  🕒 Pending Enrollments
 </a>
+   <a href="/admin/meal-plan" class="btn btn-primary">MEALS</a>
+
 
   </div>
 
@@ -4195,14 +4195,14 @@ for (let day in mealPlan) {
   const dayDiv = document.createElement("div");
   dayDiv.className = "day";
 
-  dayDiv.innerHTML = \`<h2>${day}</h2>\`;
+ dayDiv.innerHTML = "<h2>" + day + "</h2>";
 
   for (let meal in mealPlan[day]) {
-    dayDiv.innerHTML += \`
-      <div class="meal">
-        <strong>${meal}:</strong> ${mealPlan[day][meal]}
-      </div>
-    \`;
+dayDiv.innerHTML +=
+  "<div class='meal'>" +
+  "<strong>" + meal + ":</strong> " +
+  mealPlan[day][meal] +
+  "</div>";
   }
 
   container.appendChild(dayDiv);
