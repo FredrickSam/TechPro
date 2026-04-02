@@ -400,7 +400,7 @@ const slides = await pool.query(
    <a href="/admin/pending-enrollments" class="btn btn-warning">  🕒 Pending Enrollments
 </a>
    <a href="/admin/meal-plan" class="btn btn-primary">MEALS</a>
-
+ <a href="/admin/workout-plan" class="btn btn-success">Workout Tracker</a>
 
   </div>
 
@@ -4202,6 +4202,123 @@ dayDiv.innerHTML +=
   "<div class='meal'>" +
   "<strong>" + meal + ":</strong> " +
   mealPlan[day][meal] +
+  "</div>";
+  }
+
+  container.appendChild(dayDiv);
+}
+</script>
+
+</body>
+</html>
+   `);
+     } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// WORKOUT DYNAMIC PAGE
+app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).send('Access denied');
+    }
+
+   res.send(`
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weekly workout Plan</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7f8;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c7a7b;
+    }
+
+    .day {
+      background: #ffffff;
+      margin: 20px auto;
+      padding: 15px;
+      border-radius: 10px;
+      max-width: 700px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .day h2 {
+      color: #2b6cb0;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 5px;
+    }
+
+    .meal {
+      margin: 8px 0;
+    }
+
+    .meal strong {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Weekly workout Plan</h1>
+
+<div id="workout-container"></div>
+
+<script>
+const workoutPlan = {
+  Monday: {
+  
+    WORKOUT: "LEGS"
+  },
+  Tuesday: {
+  
+    WORKOUT: "CHEST"
+  },
+  Wednesday: {
+  
+    WORKOUT: "SHOULDERS"
+  },
+  Thursday: {
+   
+   WORKOUT: "BACK"
+  },
+  Friday: {
+   
+    WORKOUT: "ARMS"
+  },
+  Saturday: {
+   
+    WORKOUT: "FULLBODY STRENGTH"
+  },
+  Sunday: {
+  
+    BeforeBed: "REST"
+  }
+};
+
+const container = document.getElementById("workout-container");
+
+for (let day in workoutPlan) {
+  const dayDiv = document.createElement("div");
+  dayDiv.className = "day";
+
+ dayDiv.innerHTML = "<h2>" + day + "</h2>";
+
+  for (let meal in workoutPlan[day]) {
+dayDiv.innerHTML +=
+  "<div class='workout'>" +
+  "<strong>" + workout + ":</strong> " +
+  workoutPlan[day][workout] +
   "</div>";
   }
 
