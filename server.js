@@ -4302,7 +4302,7 @@ const workoutPlan = {
   },
   Sunday: {
   
-    BeforeBed: "REST"
+    WORKOUT: "REST"
   }
 };
 
@@ -4314,10 +4314,10 @@ for (let day in workoutPlan) {
 
  dayDiv.innerHTML = "<h2>" + day + "</h2>";
 
-  for (let meal in workoutPlan[day]) {
+  for (let activity in workoutPlan[day]) {
 dayDiv.innerHTML +=
   "<div class='workout'>" +
-  "<strong>" + workout + ":</strong> " +
+  "<strong>" + activity + ":</strong> " +
   workoutPlan[day][workout] +
   "</div>";
   }
