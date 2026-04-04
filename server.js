@@ -4272,10 +4272,10 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 
 <h1>🏋️‍♂️WEEKLY WORKOUT PLAN 🏋️‍♂️</h1>
 
-<div id="meal-container"></div>
+<div id="workout-container"></div>
 
 <script>
-const mealPlan = {
+const workoutPlan = {
   Monday: {
     
     "🦵": "Leg Day"
@@ -4306,19 +4306,19 @@ const mealPlan = {
   }
 };
 
-const container = document.getElementById("meal-container");
+const container = document.getElementById("workout-container");
 
-for (let day in mealPlan) {
+for (let day in workoutPlan) {
   const dayDiv = document.createElement("div");
   dayDiv.className = "day";
 
  dayDiv.innerHTML = "<h2>" + day + "</h2>";
 
-  for (let meal in mealPlan[day]) {
+  for (let workout in workoutPlan[day]) {
 dayDiv.innerHTML +=
-  "<div class='meal'>" +
-  "<strong>" + meal + ":</strong> " +
-  mealPlan[day][meal] +
+  "<div class='workout'>" +
+  "<strong>" + workout + ":</strong> " +
+  workoutPlan[day][workout] +
   "</div>";
   }
 
