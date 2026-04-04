@@ -4281,52 +4281,28 @@ const mealPlan = {
     WORKOUT: "LEGS"
   },
   Tuesday: {
-    Breakfast: "2 eggs + brown bread + uji + orange",
-    Snack1: "Roasted maize + peanuts",
-    Lunch: "Ugali + managu + omena + avocado",
-    Snack2: "2 boiled eggs + watermelon",
-    Dinner: "Chapati + ndengu + spinach + banana",
-    BeforeBed: "Milk"
+    
+    WORKOUT: "CHEST"
   },
   Wednesday: {
-    Breakfast: "Uji + boiled egg + banana",
-    Snack1: "Sweet potatoes + tea",
-    Lunch: "Rice + lentils + sukuma wiki",
-    Snack2: "Fruit salad",
-    Dinner: "Ugali + fish + spinach",
-    BeforeBed: "Milk + peanuts"
+  
+    WORKOUT: "SHOULDERS"
   },
   Thursday: {
-    Breakfast: "3 eggs + bread + milk",
-    Snack1: "Groundnuts + pawpaw",
-    Lunch: "Ugali + cabbage + beef/chicken + avocado",
-    Snack2: "Nduma + tea",
-    Dinner: "Rice + beans + sukuma wiki + egg",
-    BeforeBed: "Milk"
+   
+    WPRKOUT: "BACK"
   },
   Friday: {
-    Breakfast: "2 boiled eggs + chapati + tea",
-    Snack1: "Mango + peanuts",
-    Lunch: "Rice + beans + sukuma + avocado",
-    Snack2: "Sweet potato + milk",
-    Dinner: "Ugali + omena + spinach",
-    BeforeBed: "Milk"
+ 
+    WORKOUT: "ARMS"
   },
   Saturday: {
-    Breakfast: "Uji + 2 eggs + banana",
-    Snack1: "Roasted maize + peanuts",
-    Lunch: "Ugali + beef/chicken/fish + sukuma + avocado",
-    Snack2: "2 boiled eggs + tea",
-    Dinner: "Rice + ndengu + spinach",
-    BeforeBed: "Milk"
+  
+    WORKOUT: "FULL BODY STRENGTH"
   },
   Sunday: {
-    Breakfast: "Uji or milk + 2 eggs + banana",
-    Snack1: "Groundnuts + orange",
-    Lunch: "Ugali + fish + spinach",
-    Snack2: "Sweet potato + milk",
-    Dinner: "Chapati + beans + cabbage",
-    BeforeBed: "Milk"
+   
+    WORKOUT: "REST"
   }
 };
 
