@@ -4259,11 +4259,11 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
       padding-bottom: 5px;
     }
 
-    .meal {
+    .workout {
       margin: 8px 0;
     }
 
-    .meal strong {
+    .workout strong {
       color: #333;
     }
   </style>
