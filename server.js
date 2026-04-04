@@ -4278,31 +4278,31 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 const mealPlan = {
   Monday: {
     
-    🦵: "Leg Day"
+    "🦵": "Leg Day"
   },
   Tuesday: {
     
-    💪: "Chest Day"
+    "💪": "Chest Day"
   },
   Wednesday: {
   
-    🧍‍♂️: "Shoulders Day"
+    "🧍‍♂️": "Shoulders Day"
   },
   Thursday: {
    
-    🔙: "Back Day"
+    "🔙": "Back Day"
   },
   Friday: {
  
-    🦾: "Arms Day"
+    "🦾": "Arms Day"
   },
   Saturday: {
   
-    🏋️‍♂️: "Full Body Strength"
+    "🏋️‍♂️": "Full Body Strength"
   },
   Sunday: {
    
-    😴: "Rest Day"
+    "😴": "Rest Day"
   }
 };
 
