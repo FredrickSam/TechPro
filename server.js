@@ -4225,12 +4225,12 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
       return res.status(403).send('Access denied');
     }
 
-   res.send(`
+    res.send(`
     <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Weekly workout Plan</title>
+  <title>Weekly Meal Plan</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -4270,55 +4270,83 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 </head>
 <body>
 
-<h1>Weekly workout Plan</h1>
+<h1>Weekly Meal Plan</h1>
 
-<div id="workout-container"></div>
+<div id="meal-container"></div>
 
 <script>
-const workoutPlan = {
+const mealPlan = {
   Monday: {
-  
-    WORKOUT: "LEGS"
+    Breakfast: "3 boiled eggs + 2 chapatis + tea with milk",
+    Snack1: "Groundnuts + 1 banana",
+    Lunch: "Ugali + sukuma wiki + beef stew + avocado",
+    Snack2: "Sweet potatoes + 1 boiled egg",
+    Dinner: "Rice + beans + cabbage + mango + 1 boiled egg",
+    BeforeBed: "1 glass of milk"
   },
   Tuesday: {
-  
-    WORKOUT: "CHEST"
+    Breakfast: "2 eggs + brown bread + uji + orange",
+    Snack1: "Roasted maize + peanuts",
+    Lunch: "Ugali + managu + omena + avocado",
+    Snack2: "2 boiled eggs + watermelon",
+    Dinner: "Chapati + ndengu + spinach + banana",
+    BeforeBed: "Milk"
   },
   Wednesday: {
-  
-    WORKOUT: "SHOULDERS"
+    Breakfast: "Uji + boiled egg + banana",
+    Snack1: "Sweet potatoes + tea",
+    Lunch: "Rice + lentils + sukuma wiki",
+    Snack2: "Fruit salad",
+    Dinner: "Ugali + fish + spinach",
+    BeforeBed: "Milk + peanuts"
   },
   Thursday: {
-   
-   WORKOUT: "BACK"
+    Breakfast: "3 eggs + bread + milk",
+    Snack1: "Groundnuts + pawpaw",
+    Lunch: "Ugali + cabbage + beef/chicken + avocado",
+    Snack2: "Nduma + tea",
+    Dinner: "Rice + beans + sukuma wiki + egg",
+    BeforeBed: "Milk"
   },
   Friday: {
-   
-    WORKOUT: "ARMS"
+    Breakfast: "2 boiled eggs + chapati + tea",
+    Snack1: "Mango + peanuts",
+    Lunch: "Rice + beans + sukuma + avocado",
+    Snack2: "Sweet potato + milk",
+    Dinner: "Ugali + omena + spinach",
+    BeforeBed: "Milk"
   },
   Saturday: {
-   
-    WORKOUT: "FULLBODY STRENGTH"
+    Breakfast: "Uji + 2 eggs + banana",
+    Snack1: "Roasted maize + peanuts",
+    Lunch: "Ugali + beef/chicken/fish + sukuma + avocado",
+    Snack2: "2 boiled eggs + tea",
+    Dinner: "Rice + ndengu + spinach",
+    BeforeBed: "Milk"
   },
   Sunday: {
-  
-    WORKOUT: "REST"
+    Breakfast: "Uji or milk + 2 eggs + banana",
+    Snack1: "Groundnuts + orange",
+    Lunch: "Ugali + fish + spinach",
+    Snack2: "Sweet potato + milk",
+    Dinner: "Chapati + beans + cabbage",
+    BeforeBed: "Milk"
   }
 };
 
-const container = document.getElementById("workout-container");
+const container = document.getElementById("meal-container");
 
-for (let day in workoutPlan) {
+for (let day in mealPlan) {
   const dayDiv = document.createElement("div");
   dayDiv.className = "day";
 
  dayDiv.innerHTML = "<h2>" + day + "</h2>";
 
-  for (let activity in workoutPlan[day]) {
+  for (let meal in mealPlan[day]) {
 dayDiv.innerHTML +=
-  "<div class='workout'>" +
-  "<strong>" + activity + ":</strong> " +
-  workoutPlan[day][workout] +
+  "<div class='meal'>" +
+  "<strong>" + meal + ":</strong> " +
+  mealPlan[day][meal] +
   "</div>";
   }
 
