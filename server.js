@@ -4277,12 +4277,8 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 <script>
 const mealPlan = {
   Monday: {
-    Breakfast: "3 boiled eggs + 2 chapatis + tea with milk",
-    Snack1: "Groundnuts + 1 banana",
-    Lunch: "Ugali + sukuma wiki + beef stew + avocado",
-    Snack2: "Sweet potatoes + 1 boiled egg",
-    Dinner: "Rice + beans + cabbage + mango + 1 boiled egg",
-    BeforeBed: "1 glass of milk"
+    
+    WORKOUT: "LEGS"
   },
   Tuesday: {
     Breakfast: "2 eggs + brown bread + uji + orange",
