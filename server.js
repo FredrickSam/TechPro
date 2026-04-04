@@ -4230,7 +4230,7 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Weekly Meal Plan</title>
+  <title>Weekly Workout  Plan</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -4270,7 +4270,7 @@ app.get('/admin/workout-plan', isAuthenticated, async (req, res) => {
 </head>
 <body>
 
-<h1>Weekly Meal Plan</h1>
+<h1>Weekly Workout Plan</h1>
 
 <div id="meal-container"></div>
 
