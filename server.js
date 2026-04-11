@@ -3064,7 +3064,12 @@ app.get('/home', async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3208,7 +3213,12 @@ app.get('/hobbies', async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3342,7 +3352,12 @@ app.get('/admin/books',isAuthenticated, async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+       ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3497,7 +3512,12 @@ app.get('/skills', async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3624,7 +3644,12 @@ app.get('/work', async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+       ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3755,7 +3780,12 @@ app.get('/certifications', async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -3887,7 +3917,12 @@ for (const category in grouped) {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
@@ -4018,7 +4053,12 @@ app.get('/my-courses', isAuthenticated, async (req, res) => {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link" href="/home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/hobbies">My Hobbies</a></li>
-        <li class="nav-item"><a class="nav-link" href="/admin/books">Books & Teaching</a></li>
+        ${req.user && req.user.role === 'admin' ? `
+  <li class="nav-item">
+    <a class="nav-link" href="/admin/books">Books & Teaching</a>
+  </li>
+` : ''}
+
         <li class="nav-item"><a class="nav-link" href="/work">Work & Experience</a></li>
         <li class="nav-item"><a class="nav-link" href="/skills">My Skills</a></li>
         <li class="nav-item"><a class="nav-link" href="/certifications">Certificates & Awards</a></li>
