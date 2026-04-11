@@ -3252,7 +3252,7 @@ app.get('/hobbies', async (req, res) => {
 
 
 // DYNAMIC BOOKS PAGE
-app.get('/books', async (req, res) => {
+app.get('admin/books',isAuthenticated, async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM profile_items WHERE type = 'book' ORDER BY created_at DESC"
   );
